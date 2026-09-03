@@ -23,12 +23,11 @@ pnpm changeset
 
 ```markdown
 ---
-'@mfr/utils': minor
-'@mfr/date': patch
+'@mfr/http': minor
 ---
 
-feat: 新增 debounce 防抖变体 `debounce.immediate`
-fix: 修复 format 在夏令时边界处的错误输出
+feat: 新增请求防重复开关 dedupe,同 key 在途时自动取消旧请求
+fix: 修复重复请求完成回调误删新请求取消信号的问题
 ```
 
 ## 发布流程
@@ -44,5 +43,5 @@ pnpm run release:publish          # ④ 前置校验(lint/build/typecheck)+ 批�
 > ⚠️ 根脚本名为 `version`,但 `pnpm version` 是 pnpm 内建命令(直接改版本号)会被拦截,
 > 因此统一用 **`pnpm run version`** 走自定义版本 + 分组 changelog 流程。
 
-- 内部依赖联动:若 `@mfr/utils` 升级,`@mfr/validator` 会自动补一个 patch 版本并生成"依赖更新"说明(`updateInternalDependencies: patch`)。
+- 内部依赖联动:若某上游子包升级,依赖它的下游子包会自动补一个 patch 版本并生成"依赖更新"说明(`updateInternalDependencies: patch`)。当前仓库可发布子包仅 `@mfr/http` 且依赖 npm 的 axios,暂无该场景,机制保留给后续新增子包。
 - 单包发包 / 企业私有源切换见根目录 README。

@@ -2,11 +2,9 @@
 
 基于 **pnpm workspace** 的前端工具库仓库:多个 `@mfr/*` 子包**独立版本、独立打包、独立发布**,包间可互相依赖(workspace 协议 + 本地软链联调),全工程统一 ESLint / Prettier / TypeScript / Git 提交规范,由 Changesets 驱动版本并产出**按提交类型分组的自定义 CHANGELOG**。
 
-| 子包             | 说明                                                               | 内部依赖     |
-| ---------------- | ------------------------------------------------------------------ | ------------ |
-| `@mfr/utils`     | 通用方法库(函数式 / 克隆 / 数组 / 对象 / 字符串 / 数字 / 类型判断) | —            |
-| `@mfr/validator` | 校验库(表单校验 / 正则校验 / 参数与业务规则校验)                   | `@mfr/utils` |
-| `@mfr/date`      | 日期库(格式化 / 计算 / 差值 / 相对时间 / 时区,纯 Intl 无依赖)      | —            |
+| 子包        | 说明                                                                                                                                                             | 依赖              |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `@mfr/http` | 请求库:HTTP 内核(RESTful 语义化方法 / 业务信封解包 / 防重复 / 并发熔断 / 反馈适配器)+ 多接口编排层(MultiApiTask / BatchProcessor / DataLoaderService),零 UI 依赖 | `axios`(npm 依赖) |
 
 ## 技术栈
 
@@ -23,9 +21,7 @@
 ```
 .
 ├── packages/                 # 可发布子包(packages/*)
-│   ├── utils/                # @mfr/utils
-│   ├── validator/            # @mfr/validator
-│   └── date/                 # @mfr/date
+│   └── http/                 # @mfr/http(http 封装内核 + 多接口编排)
 ├── tooling/                  # 工程共享配置(不可发布)
 │   ├── eslint-config/        # @mfr/eslint-config(flat 数组)
 │   ├── prettier-config/      # @mfr/prettier-config(shareable)
@@ -36,8 +32,118 @@
 └── pnpm-workspace.yaml
 ```
 
-每个子包统一结构:`src/index.ts`(唯一聚合导出,禁止跨层级内部 import)+ `src/modules/` 按功能拆分;
+每个子包统一结构:`src/index.ts`(唯一聚合导出,禁止跨层级内部 import),源码按能力分层组织
+(新增能力 = 在 `src/` 下新建目录并在 `index.ts` 聚合)。以 `@mfr/http` 为例:
+`src/http/`(方法一:封装 axios 请求)+ `src/orchestrator/`(方法二:批量处理请求),两层不互相 import;
 `tsconfig.json` extends 基座;`tsup.config.ts` 双格式打包;`package.json` 仅发布 `dist`。
+
+### @mfr/http 快速接入
+
+```ts
+import http, { createHttpClient } from '@mfr/http'
+
+// ① 注入 UI 反馈适配器(库内零 UI 依赖;示例为 antd,ElementPlus 的 ElMessage 同理)
+http.setFeedback({
+  message: {
+    error: (t) => message.error(t),
+    success: (t) => message.success(t),
+    warning: (t) => message.warning(t),
+  },
+  loading: { show: () => messageLoading.show(), hide: () => messageLoading.hide() },
+  getToken: () => localStorage.getItem('access_token'),
+  onUnauthorized: () => {
+    /* 清 token 并跳登录页 */
+  },
+})
+
+// ② 默认以 { code, message, data } 为业务信封,code === 200 时直接 resolve data;
+//    泛型 T 直达后端载荷,免去每处手动 res.data 解包。
+const user = await http.get<User>('/users/123', { verbose: true })
+await http.post<User>('/users', { name: 'mfr' })
+
+// ③ 需要隔离(不同 baseURL / token)时创建独立实例
+const adminHttp = createHttpClient({ baseURL: '/admin-api' })
+
+// ④ 进阶能力:防重复提交 / 并发熔断 / 全局取消
+http.configure({ dedupe: true }) // 同 key 在途时取消旧请求
+const [a, b] = await http.all([
+  { method: 'get', url: '/a' },
+  { method: 'get', url: '/b' },
+])
+http.abortAll() // 取消当前全部在途请求
+```
+
+> UI 反馈、token、401 登出均为适配器,不内置任何 UI 库;不注入 message 时错误会兜底 `console.error`,绝不静默吞错。
+
+### @mfr/http 多接口编排
+
+编排层(MultiApiTask / BatchProcessor / DataLoaderService)与传输、UI 完全无关:每条数据要拉
+多个子接口时,把每个子接口封装成一个 `{ key, fetcher }` 配置,`fetcher(info, signal)` 返回
+`Promise`,内部可用上文的 `http.get` 等实现。`DataLoaderService` 负责按 id 去重、取消后替换、
+限流并发;每个子接口结算都会触发一次 `onUpdate`,UI 可据此做细粒度进度展示与失败重试。
+
+```ts
+import { DataLoaderService, TaskStatus, SubApiStatus } from '@mfr/http'
+import type { DataItemViewModel } from '@mfr/http'
+
+// 一行订单需要拼装多个接口:库存、价格、备注
+interface OrderInfo {
+  id: string
+}
+interface OrderVm {
+  stock: number
+  price: { amount: number; currency: string }
+  remark: { note: string; updatedAt: number }
+}
+
+const loader = new DataLoaderService<OrderVm, OrderInfo>(5) // 并发上限 5 条数据
+
+const loadOrders = (
+  orders: OrderInfo[],
+  render: (vm: DataItemViewModel<OrderVm, OrderInfo>) => void,
+) =>
+  loader.load(
+    orders.map((info) => ({ id: info.id, info })), // load 按 id 去重,重复 load 会先取消旧任务
+    (info) => [
+      // 信封解包已就位:http.get<T> 直接 resolve 业务载荷;signal 支持随任务整体取消而 abort
+      {
+        key: 'stock',
+        fetcher: (info, signal) => http.get<number>(`/orders/${info.id}/stock`, {}, { signal }),
+      },
+      {
+        key: 'price',
+        fetcher: (info, signal) =>
+          http.get<{ amount: number; currency: string }>(
+            `/orders/${info.id}/price`,
+            {},
+            { signal },
+          ),
+      },
+      {
+        key: 'remark',
+        fetcher: (info, signal) =>
+          http.get<{ note: string; updatedAt: number }>(
+            `/orders/${info.id}/remark`,
+            {},
+            { signal },
+          ),
+      },
+    ],
+    (vm) => {
+      // 每个子接口结算即回调一次:vm.status / vm.progress / vm.subStates / vm.data
+      render(vm)
+      if (vm.status === TaskStatus.PARTIAL_SUCCESS) {
+        // 只重试失败的那个子接口(fire-and-forget),已成功的接口不重复请求
+        Object.values(vm.subStates)
+          .filter((s) => s.status === SubApiStatus.ERROR)
+          .forEach((s) => loader.retrySubApi(vm.id, s.key))
+      }
+    },
+  )
+
+loadOrders([{ id: 'o1' }, { id: 'o2' }], updateRowView) // 逐条数据、逐子接口推进 UI
+// 组件卸载时: loader.destroy() —— 取消全部在途请求并清空注册表
+```
 
 ## 环境与常用命令
 
@@ -85,9 +191,12 @@ pnpm run release:publish          # ④ preflight(lint/build/typecheck)+ 批量�
 
 ### 内部依赖联动
 
-`@mfr/validator` 通过 `"@mfr/utils": "workspace:^"` 依赖 `@mfr/utils`(workspace 协议,本地软链直达源码)。
-`updateInternalDependencies: "patch"` 使上游升版时,下游自动补一个 patch 版本,其 CHANGELOG 生成「⬆️ 依赖更新」块
-(展示发布后的真实范围,如 `@mfr/utils@^0.1.0`)。
+当前可发布子包仅有 `@mfr/http`,其 `axios` 是 **npm 运行时依赖**(非 workspace 内部依赖),
+暂无包间 workspace 依赖。内部依赖机制仍保留给后续新增子包:
+
+- 包间依赖写作 `"@mfr/<pkg>": "workspace:^"`,本地开发通过软链直达源码;
+- `updateInternalDependencies: "patch"` 使上游升版时,下游自动补一个 patch 版本,其 CHANGELOG 生成「⬆️ 依赖更新」块
+  (发布产物中展示真实 semver,如 `@mfr/<上游包>@^0.1.0`)。
 
 **workspace 协议说明**:仓库内依赖始终写作 `workspace:^`(保证本地开发永远链接本地包);发布时由 pnpm
 在打包阶段自动改写为真实 semver(实测 `workspace:^` → `^0.1.0`),发布产物不含任何 `workspace:` 残留。
@@ -98,8 +207,8 @@ pnpm run release:publish          # ④ preflight(lint/build/typecheck)+ 批量�
   `pnpm run release:publish`
 - **单包发布**:先完成 ③ 版本提交,再单独发一个包:
   ```bash
-  pnpm --filter @mfr/date run build
-  cd packages/date && pnpm publish --registry=<registry>
+  pnpm --filter @mfr/http run build
+  cd packages/http && pnpm publish --registry=<registry>
   ```
 - **企业私有源**(临时切换,勿长期写入 `.npmrc`):
   - 方式一:命令追加 `--registry=https://your-registry.example.com`
