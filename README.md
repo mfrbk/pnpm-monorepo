@@ -15,13 +15,14 @@
 
 功能库文档见上表;非功能库的工程 / 协作文档在此集中登记,**后续新增文档请在此追加一行**:
 
-| 文档                                                               | 说明                                                                |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------- |
-| [docs/husky-changesets.md](./docs/husky-changesets.md)             | Husky + Changesets 工程流程:提交质量检查 + 版本 / CHANGELOG 发布    |
-| [docs/restful-api.md](./docs/restful-api.md)                       | RESTful API 对接规范:资源设计 / 方法语义 / 状态码 / 统一响应信封    |
-| [docs/monorepo.md](./docs/monorepo.md)                             | Monorepo 使用手册:pnpm workspace 基本概念 / 常用操作命令 / FAQ      |
-| [docs/react-hooks-scheduling.md](./docs/react-hooks-scheduling.md) | React 原理笔记:Hooks 链表 / 闭包机制、常用 Hook、并发调度四阶段     |
-| [docs/webpack/README.md](./docs/webpack/README.md)                 | Webpack 学习系列(总纲):核心配置 / 性能优化 / 底层原理 / 工程化 四篇 |
+| 文档                                                               | 说明                                                                   |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| [docs/husky-changesets.md](./docs/husky-changesets.md)             | Husky + Changesets 工程流程:提交质量检查 + 版本 / CHANGELOG 发布       |
+| [docs/restful-api.md](./docs/restful-api.md)                       | RESTful API 对接规范:资源设计 / 方法语义 / 状态码 / 统一响应信封       |
+| [docs/monorepo.md](./docs/monorepo.md)                             | Monorepo 使用手册:pnpm workspace 基本概念 / 常用操作命令 / FAQ         |
+| [docs/react-hooks-scheduling.md](./docs/react-hooks-scheduling.md) | React 原理笔记:Hooks 链表 / 闭包机制、常用 Hook、并发调度四阶段        |
+| [docs/webpack/README.md](./docs/webpack/README.md)                 | Webpack 学习系列(总纲):核心配置 / 性能优化 / 底层原理 / 工程化 四篇    |
+| [docs/vite/README.md](./docs/vite/README.md)                       | Vite 学习系列(总纲):双引擎原理 / 工程化配置 / 插件系统 / 生态对比 四篇 |
 
 ## 技术栈
 
