@@ -19,6 +19,7 @@
 | ------------------------------------------------------ | ---------------------------------------------------------------- |
 | [docs/husky-changesets.md](./docs/husky-changesets.md) | Husky + Changesets 工程流程:提交质量检查 + 版本 / CHANGELOG 发布 |
 | [docs/restful-api.md](./docs/restful-api.md)           | RESTful API 对接规范:资源设计 / 方法语义 / 状态码 / 统一响应信封 |
+| [docs/monorepo.md](./docs/monorepo.md)                 | Monorepo 使用手册:pnpm workspace 基本概念 / 常用操作命令 / FAQ   |
 
 ## 技术栈
 
