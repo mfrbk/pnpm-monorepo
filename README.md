@@ -1,128 +1,79 @@
 # @mzy1120 前端工具库 Monorepo
 
-基于 **pnpm workspace** 的前端工具库仓库:多个 `@mzy1120/*` 子包**独立版本、独立打包、独立发布**,包间可互相依赖(workspace 协议 + 本地软链联调),全工程统一 ESLint / Prettier / TypeScript / Git 提交规范,由 Changesets 驱动版本并产出**按提交类型分组的自定义 CHANGELOG**。
+基于 **pnpm workspace** 的前端工具库仓库:多个 `@mzy1120/*` 子包**独立版本、独立打包、独立发布**,包间可互相依赖(workspace 协议 + 本地软链联调),统一 ESLint / Prettier / TypeScript / Git 提交规范,由 Changesets 驱动版本并产出按提交类型分组的自定义 CHANGELOG。
 
 ## 功能库文档
 
-各功能库(能力)使用文档独立成篇,集中存放在 [`docs/`](./docs/),从下表跳转:
+| 功能库                       | 说明                                                                                                                      | 文档                                                |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `@mzy1120/http` · 请求封装   | 基于 axios 的统一封装(RESTful 语义化方法 / 业务信封解包 / 防重复 / 并发熔断 / 全局取消 / 反馈适配器 / 多实例),零 UI 依赖  | [http-request.md](./docs/http-request.md)           |
+| `@mzy1120/http` · 多接口编排 | MultiApiTask / BatchProcessor / DataLoaderService —— 去重、取消后替换、限流并发、整体取消、失败子接口重试与细粒度进度回调 | [http-orchestrator.md](./docs/http-orchestrator.md) |
 
-| 功能库                       | 说明                                                                                                                                                                      | 文档                                                |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| `@mzy1120/http` · 请求封装   | HTTP 内核:基于 axios 的统一封装(RESTful 语义化方法 / 业务信封解包 / 防重复 / 并发熔断 / 全局取消 / 反馈适配器 / 多实例),零 UI 依赖,可注入 antd / ElementPlus;依赖 `axios` | [http-request.md](./docs/http-request.md)           |
-| `@mzy1120/http` · 多接口编排 | 编排层:MultiApiTask / BatchProcessor / DataLoaderService —— 按 id 去重、取消后替换、限流并发、整体取消、失败子接口重试与细粒度进度回调;与传输、UI 无关                    | [http-orchestrator.md](./docs/http-orchestrator.md) |
-
-> 上表两篇均属于同一已发布子包 `@mzy1120/http`,分别对应其 `src/http/`(请求内核)与 `src/orchestrator/`(多接口编排),全部由 `@mzy1120/http` 单一入口聚合导出。
+> 两篇同属已发布子包 `@mzy1120/http`,分别对应其 `src/http/`(请求内核)与 `src/orchestrator/`(多接口编排),由单一入口聚合导出。完整使用文档见 [`docs/`](./docs/)。
 
 ## 技术栈
 
-- 包管理:**pnpm workspace**(`pnpm@11.25.0`,corepack 锁定)
-- 构建:**tsup**(ESM + CJS + d.ts 三产物)
-- 类型:**TypeScript 5.9**,`tooling/tsconfig.base.json` 统一基座
-- 规范:**ESLint 10 flat config** + **Prettier**(共享配置包集中在 `tooling/`,子包零配置)
-- 提交:Husky(pre-commit: lint-staged)+ Commitlint(commit-msg,类型强制)
-- 版本 / 发布:**Changesets** + 自定义分组 CHANGELOG(`scripts/release/version.mjs`)
+- 包管理:**pnpm workspace**(corepack 锁定);构建:**tsup**(ESM + CJS + d.ts)
+- 类型:**TypeScript**(`tooling/tsconfig.base.json` 统一基座)
+- 规范:**ESLint flat config** + **Prettier**(共享配置集中在 `tooling/`,子包零配置)
+- 提交 / 版本:**Husky + Commitlint**、**Changesets** + 自定义分组 CHANGELOG
 - 质量闸门:**lint + typecheck**(按约定不引入测试框架)
 
 ## 目录结构
 
 ```
-.
-├── packages/                 # 可发布子包(packages/*)
+├── packages/                 # 可发布子包
 │   └── http/                 # @mzy1120/http(http 封装内核 + 多接口编排)
-├── docs/                     # 功能库使用文档(上表跳转入口)
-├── tooling/                  # 工程共享配置(不可发布)
-│   ├── eslint-config/        # @mzy1120/eslint-config(flat 数组)
-│   ├── prettier-config/      # @mzy1120/prettier-config(shareable)
-│   └── tsconfig.base.json
+├── docs/                     # 功能库使用文档
+├── tooling/                  # 工程共享配置(eslint / prettier / tsconfig)
 ├── scripts/release/          # 自定义版本 + 分组 changelog
 ├── .changeset/               # Changesets 配置与团队约定
-├── .husky/                   # git 钩子(pre-commit / commit-msg)
 └── pnpm-workspace.yaml
 ```
 
-每个子包统一结构:`src/index.ts`(唯一聚合导出,禁止跨层级内部 import),源码按能力分层组织
-(新增能力 = 在 `src/` 下新建目录并在 `index.ts` 聚合)。以 `@mzy1120/http` 为例:
-`src/http/`(方法一:封装 axios 请求)+ `src/orchestrator/`(方法二:批量处理请求),两层不互相 import;
-`tsconfig.json` extends 基座;`tsup.config.ts` 双格式打包;`package.json` 仅发布 `dist`。
-各能力的接入与 API 用法见 [功能库文档](#功能库文档),可对照源码分层阅读。
+子包统一结构:`src/index.ts` 唯一聚合导出(新增能力 = 新建目录并在 `index.ts` 聚合),按能力分层组织,两层互不 import;仅发布 `dist`。
 
-## 环境与常用命令
+## 常用命令
 
 ```bash
-corepack enable                                # 首次:启用 pnpm(自动读取 packageManager)
-pnpm install                                   # 安装(含 esbuild postinstall)
-pnpm run build                                 # 全量子包打包(esm/cjs/d.ts → dist/)
-pnpm run typecheck                             # 全量子包 tsc --noEmit
-pnpm run lint / lint:fix                       # ESLint(flat config)
-pnpm run format / format:check                 # Prettier
-pnpm run preflight                             # 发布前置:lint + build + typecheck
-pnpm run pack:check                            # tarball 内容 dry-run(应仅含 dist + package.json)
+corepack enable              # 首次:启用 pnpm
+pnpm install                 # 安装
+pnpm run build               # 全量子包打包(esm/cjs/d.ts → dist/)
+pnpm run typecheck           # 全量子包 tsc --noEmit
+pnpm run lint / format       # ESLint / Prettier
+pnpm run preflight           # 发布前置:lint + build + typecheck
+pnpm run pack:check          # tarball 内容 dry-run
 ```
 
 ## 版本与发布
 
-### 提交规范(Commitlint 强制)
+提交类型:`feat` `fix` `perf` `refactor` `docs` `chore` `break`。Changeset 的 summary 以类型前缀开头,`pnpm run version` 据此归类进 CHANGELOG 分组并对应版本:
 
-类型枚举:`feat` `fix` `perf` `refactor` `docs` `chore` `break`(`break` 表示破坏性)。
+| 前缀 / bump         | CHANGELOG 分组      | 版本  |
+| ------------------- | ------------------- | ----- |
+| `break:` · major    | 💥 Breaking Changes | major |
+| `feat:` · minor     | 🚀 Features         | minor |
+| `fix:`              | 🐛 Bug Fixes        | patch |
+| `perf:`             | ⚡ Performance      | patch |
+| docs/refactor/chore | 📚 Docs & Refactor  | patch |
 
-### Changeset 书写与分组 CHANGELOG
-
-每个 changeset 的 summary 以类型前缀开头,`pnpm run version` 会据此把变更归类进固定的五个模块并 prepend 到各包 `CHANGELOG.md`:
-
-| 前缀                             | CHANGELOG 分组                 | 对应版本 |
-| -------------------------------- | ------------------------------ | -------- |
-| `break:` 或 bump = major         | 💥 Breaking Changes 破坏性更新 | major    |
-| `feat:` 或 bump = minor          | 🚀 Features 新功能             | minor    |
-| `fix:`                           | 🐛 Bug Fixes 问题修复          | patch    |
-| `perf:`                          | ⚡ Performance 性能优化        | patch    |
-| `docs:` / `refactor:` / `chore:` | 📚 Docs & Refactor 文档与重构  | patch    |
-
-完整发布流程:
+发布流程:
 
 ```bash
-pnpm changeset                    # ① 记录变更(选包 + 版本级别 + 写前缀 summary)
-git add . && git commit -m "feat: ..."   # ② 规范提交
-pnpm run version                  # ③ 更新各包版本 + 生成分组 CHANGELOG,消费 changeset
+pnpm changeset                  # ① 记录变更(前缀 summary)
+git add . && git commit -m "feat: ..."
+pnpm run version                # ② 更新版本 + 生成分组 CHANGELOG(非 pnpm 内建 version,勿漏 run)
 git add . && git commit -m "chore: release v0.1.0"
-pnpm run release:publish          # ④ preflight(lint/build/typecheck)+ 批量发包到当前 registry
+pnpm run release:publish        # ③ preflight + 批量发包到当前 registry
 ```
 
-> ⚠️ 根脚本名为 `version`,而 `pnpm version` 是 pnpm 内建命令(直接改号)会被拦截,
-> 故统一使用 **`pnpm run version`**。若确需走 Changesets 默认行为(不带自定义 changelog),可用 `pnpm run version:default`。
+要点:
 
-### 内部依赖联动
-
-当前可发布子包仅有 `@mzy1120/http`,其 `axios` 是 **npm 运行时依赖**(非 workspace 内部依赖),
-暂无包间 workspace 依赖。内部依赖机制仍保留给后续新增子包:
-
-- 包间依赖写作 `"@mzy1120/<pkg>": "workspace:^"`,本地开发通过软链直达源码;
-- `updateInternalDependencies: "patch"` 使上游升版时,下游自动补一个 patch 版本,其 CHANGELOG 生成「⬆️ 依赖更新」块
-  (发布产物中展示真实 semver,如 `@mzy1120/<上游包>@^0.1.0`)。
-
-**workspace 协议说明**:仓库内依赖始终写作 `workspace:^`(保证本地开发永远链接本地包);发布时由 pnpm
-在打包阶段自动改写为真实 semver(实测 `workspace:^` → `^0.1.0`),发布产物不含任何 `workspace:` 残留。
-
-### 发布范围 / 目标源
-
-- **批量发布(推荐,经 `changeset publish`,pnpm 检测后走 `pnpm publish`,自动改写 workspace 协议)**:
-  `pnpm run release:publish`
-- **单包发布**:先完成 ③ 版本提交,再单独发一个包:
-  ```bash
-  pnpm --filter @mzy1120/http run build
-  cd packages/http && pnpm publish --registry=<registry>
-  ```
-- **企业私有源**(临时切换,勿长期写入 `.npmrc`):
-  - 方式一:命令追加 `--registry=https://your-registry.example.com`
-  - 方式二:环境变量注入(对 changeset/pnpm publish 均生效):
-    `npm_config_registry=https://your-registry.example.com pnpm run release:publish`
-  - 私有源通常还需认证 token,参考对应制品库(Verdaccio / Nexus / JFrog)配置,亦可为私有源单独写 `.npmrc` 并提交忽略。
-
-### 发包内容核对
-
-`files` 仅含 `dist`,`pnpm run pack:check` 会 dry-run 列出 tarball 内容,确认只包含
-`dist/*`(js/cjs/map/d.ts/d.cts)与 `package.json`,不含 `src` / `tsconfig` 等源码。所有包 `sideEffects: false`,可安全被摇树。
+- **内部依赖**:包间依赖写作 `"@mzy1120/<pkg>": "workspace:^"`,发布时自动改写为真实 semver(如 `^0.1.0`);`updateInternalDependencies: "patch"` 使上游升版时下游自动补 patch。当前仅 `@mzy1120/http`,其 `axios` 为 npm 运行时依赖。
+- **发布范围**:批量走 `pnpm run release:publish`;单包可 `pnpm --filter @mzy1120/http run build && cd packages/http && pnpm publish`。私有源通过 `--registry=<url>` 或 `npm_config_registry=<url>` 临时切换。
+- **发包内容**:`files` 仅含 `dist`,`pack:check` 确认 tarball 无源码残留;`sideEffects: false` 可安全摇树。
 
 ## 常见问题
 
-- **改了子包代码但被依赖方不生效**:workspace 协议指向软链,但对外导出类型来自 `dist/`,先 `pnpm run build` 再在消费侧 typecheck。
-- **`pnpm version` 行为不对**:请改用 `pnpm run version`(见上)。
+- **改了子包代码但消费方不生效**:对外导出类型来自 `dist/`,先 `pnpm run build` 再在消费侧 typecheck。
+- **`pnpm version` 行为不对**:请用 `pnpm run version`。
