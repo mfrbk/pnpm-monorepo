@@ -11,6 +11,14 @@
 
 > 两篇同属已发布子包 `@mzy1120/http`,分别对应其 `src/http/`(请求内核)与 `src/orchestrator/`(多接口编排),由单一入口聚合导出。完整使用文档见 [`docs/`](./docs/)。
 
+## 其他文档
+
+功能库文档见上表;非功能库的工程 / 协作文档在此集中登记,**后续新增文档请在此追加一行**:
+
+| 文档                                       | 说明                                                             |
+| ------------------------------------------ | ---------------------------------------------------------------- |
+| [docs/changesets.md](./docs/changesets.md) | Husky + Changesets 工程流程:提交质量检查 + 版本 / CHANGELOG 发布 |
+
 ## 技术栈
 
 - 包管理:**pnpm workspace**(corepack 锁定);构建:**tsup**(ESM + CJS + d.ts)
@@ -46,8 +54,6 @@ pnpm run pack:check          # tarball 内容 dry-run
 ```
 
 ## 版本与发布
-
-> changeset 书写规范见 [.changeset/README](.changeset/README.md);scope 包发布 / npm 组织说明见 [docs/npm-publish.md](docs/npm-publish.md)。
 
 提交类型:`feat` `fix` `perf` `refactor` `docs` `chore` `break`。Changeset 的 summary 以类型前缀开头,`pnpm run version` 据此归类进 CHANGELOG 分组并对应版本:
 
