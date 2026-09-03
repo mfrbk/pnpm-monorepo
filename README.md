@@ -2,9 +2,16 @@
 
 基于 **pnpm workspace** 的前端工具库仓库:多个 `@mzy1120/*` 子包**独立版本、独立打包、独立发布**,包间可互相依赖(workspace 协议 + 本地软链联调),全工程统一 ESLint / Prettier / TypeScript / Git 提交规范,由 Changesets 驱动版本并产出**按提交类型分组的自定义 CHANGELOG**。
 
-| 子包            | 说明                                                                                                                                                             | 依赖              |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| `@mzy1120/http` | 请求库:HTTP 内核(RESTful 语义化方法 / 业务信封解包 / 防重复 / 并发熔断 / 反馈适配器)+ 多接口编排层(MultiApiTask / BatchProcessor / DataLoaderService),零 UI 依赖 | `axios`(npm 依赖) |
+## 功能库文档
+
+各功能库(能力)使用文档独立成篇,集中存放在 [`docs/`](./docs/),从下表跳转:
+
+| 功能库                       | 说明                                                                                                                                                                      | 文档                                                |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `@mzy1120/http` · 请求封装   | HTTP 内核:基于 axios 的统一封装(RESTful 语义化方法 / 业务信封解包 / 防重复 / 并发熔断 / 全局取消 / 反馈适配器 / 多实例),零 UI 依赖,可注入 antd / ElementPlus;依赖 `axios` | [http-request.md](./docs/http-request.md)           |
+| `@mzy1120/http` · 多接口编排 | 编排层:MultiApiTask / BatchProcessor / DataLoaderService —— 按 id 去重、取消后替换、限流并发、整体取消、失败子接口重试与细粒度进度回调;与传输、UI 无关                    | [http-orchestrator.md](./docs/http-orchestrator.md) |
+
+> 上表两篇均属于同一已发布子包 `@mzy1120/http`,分别对应其 `src/http/`(请求内核)与 `src/orchestrator/`(多接口编排),全部由 `@mzy1120/http` 单一入口聚合导出。
 
 ## 技术栈
 
@@ -22,6 +29,7 @@
 .
 ├── packages/                 # 可发布子包(packages/*)
 │   └── http/                 # @mzy1120/http(http 封装内核 + 多接口编排)
+├── docs/                     # 功能库使用文档(上表跳转入口)
 ├── tooling/                  # 工程共享配置(不可发布)
 │   ├── eslint-config/        # @mzy1120/eslint-config(flat 数组)
 │   ├── prettier-config/      # @mzy1120/prettier-config(shareable)
@@ -36,114 +44,7 @@
 (新增能力 = 在 `src/` 下新建目录并在 `index.ts` 聚合)。以 `@mzy1120/http` 为例:
 `src/http/`(方法一:封装 axios 请求)+ `src/orchestrator/`(方法二:批量处理请求),两层不互相 import;
 `tsconfig.json` extends 基座;`tsup.config.ts` 双格式打包;`package.json` 仅发布 `dist`。
-
-### @mzy1120/http 快速接入
-
-```ts
-import http, { createHttpClient } from '@mzy1120/http'
-
-// ① 注入 UI 反馈适配器(库内零 UI 依赖;示例为 antd,ElementPlus 的 ElMessage 同理)
-http.setFeedback({
-  message: {
-    error: (t) => message.error(t),
-    success: (t) => message.success(t),
-    warning: (t) => message.warning(t),
-  },
-  loading: { show: () => messageLoading.show(), hide: () => messageLoading.hide() },
-  getToken: () => localStorage.getItem('access_token'),
-  onUnauthorized: () => {
-    /* 清 token 并跳登录页 */
-  },
-})
-
-// ② 默认以 { code, message, data } 为业务信封,code === 200 时直接 resolve data;
-//    泛型 T 直达后端载荷,免去每处手动 res.data 解包。
-const user = await http.get<User>('/users/123', { verbose: true })
-await http.post<User>('/users', { name: 'mfr' })
-
-// ③ 需要隔离(不同 baseURL / token)时创建独立实例
-const adminHttp = createHttpClient({ baseURL: '/admin-api' })
-
-// ④ 进阶能力:防重复提交 / 并发熔断 / 全局取消
-http.configure({ dedupe: true }) // 同 key 在途时取消旧请求
-const [a, b] = await http.all([
-  { method: 'get', url: '/a' },
-  { method: 'get', url: '/b' },
-])
-http.abortAll() // 取消当前全部在途请求
-```
-
-> UI 反馈、token、401 登出均为适配器,不内置任何 UI 库;不注入 message 时错误会兜底 `console.error`,绝不静默吞错。
-
-### @mzy1120/http 多接口编排
-
-编排层(MultiApiTask / BatchProcessor / DataLoaderService)与传输、UI 完全无关:每条数据要拉
-多个子接口时,把每个子接口封装成一个 `{ key, fetcher }` 配置,`fetcher(info, signal)` 返回
-`Promise`,内部可用上文的 `http.get` 等实现。`DataLoaderService` 负责按 id 去重、取消后替换、
-限流并发;每个子接口结算都会触发一次 `onUpdate`,UI 可据此做细粒度进度展示与失败重试。
-
-```ts
-import { DataLoaderService, TaskStatus, SubApiStatus } from '@mzy1120/http'
-import type { DataItemViewModel } from '@mzy1120/http'
-
-// 一行订单需要拼装多个接口:库存、价格、备注
-interface OrderInfo {
-  id: string
-}
-interface OrderVm {
-  stock: number
-  price: { amount: number; currency: string }
-  remark: { note: string; updatedAt: number }
-}
-
-const loader = new DataLoaderService<OrderVm, OrderInfo>(5) // 并发上限 5 条数据
-
-const loadOrders = (
-  orders: OrderInfo[],
-  render: (vm: DataItemViewModel<OrderVm, OrderInfo>) => void,
-) =>
-  loader.load(
-    orders.map((info) => ({ id: info.id, info })), // load 按 id 去重,重复 load 会先取消旧任务
-    (info) => [
-      // 信封解包已就位:http.get<T> 直接 resolve 业务载荷;signal 支持随任务整体取消而 abort
-      {
-        key: 'stock',
-        fetcher: (info, signal) => http.get<number>(`/orders/${info.id}/stock`, {}, { signal }),
-      },
-      {
-        key: 'price',
-        fetcher: (info, signal) =>
-          http.get<{ amount: number; currency: string }>(
-            `/orders/${info.id}/price`,
-            {},
-            { signal },
-          ),
-      },
-      {
-        key: 'remark',
-        fetcher: (info, signal) =>
-          http.get<{ note: string; updatedAt: number }>(
-            `/orders/${info.id}/remark`,
-            {},
-            { signal },
-          ),
-      },
-    ],
-    (vm) => {
-      // 每个子接口结算即回调一次:vm.status / vm.progress / vm.subStates / vm.data
-      render(vm)
-      if (vm.status === TaskStatus.PARTIAL_SUCCESS) {
-        // 只重试失败的那个子接口(fire-and-forget),已成功的接口不重复请求
-        Object.values(vm.subStates)
-          .filter((s) => s.status === SubApiStatus.ERROR)
-          .forEach((s) => loader.retrySubApi(vm.id, s.key))
-      }
-    },
-  )
-
-loadOrders([{ id: 'o1' }, { id: 'o2' }], updateRowView) // 逐条数据、逐子接口推进 UI
-// 组件卸载时: loader.destroy() —— 取消全部在途请求并清空注册表
-```
+各能力的接入与 API 用法见 [功能库文档](#功能库文档),可对照源码分层阅读。
 
 ## 环境与常用命令
 
