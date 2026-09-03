@@ -1,4 +1,4 @@
-// @mfr/prettier-config —— 全局唯一格式化规范。根 .prettierrc 引用本包,单一数据源。
+// @mzy1120/prettier-config —— 全局唯一格式化规范。根 .prettierrc 引用本包,单一数据源。
 module.exports = {
   printWidth: 100,
   tabWidth: 2,

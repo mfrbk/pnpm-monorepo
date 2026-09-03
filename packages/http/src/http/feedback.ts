@@ -59,5 +59,5 @@ export function notifyError(store: FeedbackStore, content: string): void {
     msg.warning(content)
     return
   }
-  console.error(`[@mfr/http] ${content}`)
+  console.error(`[@mzy1120/http] ${content}`)
 }

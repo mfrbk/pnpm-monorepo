@@ -1,4 +1,4 @@
-// @mfr/eslint-config —— 全局 ESLint 10 flat 共享配置。
+// @mzy1120/eslint-config —— 全局 ESLint 10 flat 共享配置。
 // 设计:本包自足(自带所需插件依赖),根 eslint.config.mjs 引入后覆盖整个 monorepo,
 //       所有子包 / 配置文件自动继承,无需为子包单独配置。
 // 格式化交给 prettier(见 tooling/prettier-config),末尾引入 eslint-config-prettier 仅用于关闭冲突规则。

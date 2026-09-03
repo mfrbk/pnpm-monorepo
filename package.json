@@ -1,5 +1,5 @@
 {
-  "name": "@mfr/monorepo",
+  "name": "@mzy1120/monorepo",
   "version": "0.0.0",
   "private": true,
   "description": "pnpm monorepo 前端工具库:多 scope 子包独立版本 / 独立打包 / 独立发布",
@@ -35,8 +35,8 @@
     "@changesets/cli": "^3.0.1",
     "@commitlint/cli": "^21.2.2",
     "@commitlint/config-conventional": "^21.2.2",
-    "@mfr/eslint-config": "workspace:*",
-    "@mfr/prettier-config": "workspace:*",
+    "@mzy1120/eslint-config": "workspace:*",
+    "@mzy1120/prettier-config": "workspace:*",
     "eslint": "^10.9.1",
     "husky": "^9.1.7",
     "lint-staged": "^17.4.1",

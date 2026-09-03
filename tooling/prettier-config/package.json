@@ -1,8 +1,8 @@
 {
-  "name": "@mfr/prettier-config",
+  "name": "@mzy1120/prettier-config",
   "version": "0.0.0",
   "private": true,
-  "description": "@mfr monorepo 全局 Prettier 共享配置,子包零配置继承",
+  "description": "@mzy1120 monorepo 全局 Prettier 共享配置,子包零配置继承",
   "main": "index.cjs",
   "files": [
     "index.cjs"

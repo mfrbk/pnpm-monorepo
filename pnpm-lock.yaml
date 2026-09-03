@@ -17,10 +17,10 @@ importers:
       '@commitlint/config-conventional':
         specifier: ^21.2.2
         version: 21.2.2
-      '@mfr/eslint-config':
+      '@mzy1120/eslint-config':
         specifier: workspace:*
         version: link:tooling/eslint-config
-      '@mfr/prettier-config':
+      '@mzy1120/prettier-config':
         specifier: workspace:*
         version: link:tooling/prettier-config
       eslint:

@@ -35,7 +35,7 @@ export interface EnvelopeConfig {
 export type ResolvedEnvelope = Required<EnvelopeConfig>
 
 /**
- * 单次请求配置 = axios 配置 + @mfr/http 私有开关。
+ * 单次请求配置 = axios 配置 + @mzy1120/http 私有开关。
  * hideLoading / dedupe 仅用于本库拦截器,axios 会忽略未知字段。
  */
 export interface HttpRequestConfig<D = unknown> extends AxiosRequestConfig<D> {

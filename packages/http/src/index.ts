@@ -1,5 +1,5 @@
 /**
- * @mfr/http 统一入口
+ * @mzy1120/http 统一入口
  *
  * 设计约定:
  * 1. 所有对外能力一律经本文件聚合导出,禁止跨层互相 import;
@@ -16,7 +16,7 @@
  *
  * 快速开始:
  * ```ts
- * import http from '@mfr/http'
+ * import http from '@mzy1120/http'
  * http.setFeedback({ message: { error: (t) => message.error(t) }, getToken: () => localStorage.getItem('token') })
  * const users = await http.get<User[]>('/users', { page: 1 })
  * ```

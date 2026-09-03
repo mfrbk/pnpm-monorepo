@@ -1,10 +1,10 @@
-# @mfr 前端工具库 Monorepo
+# @mzy1120 前端工具库 Monorepo
 
-基于 **pnpm workspace** 的前端工具库仓库:多个 `@mfr/*` 子包**独立版本、独立打包、独立发布**,包间可互相依赖(workspace 协议 + 本地软链联调),全工程统一 ESLint / Prettier / TypeScript / Git 提交规范,由 Changesets 驱动版本并产出**按提交类型分组的自定义 CHANGELOG**。
+基于 **pnpm workspace** 的前端工具库仓库:多个 `@mzy1120/*` 子包**独立版本、独立打包、独立发布**,包间可互相依赖(workspace 协议 + 本地软链联调),全工程统一 ESLint / Prettier / TypeScript / Git 提交规范,由 Changesets 驱动版本并产出**按提交类型分组的自定义 CHANGELOG**。
 
-| 子包        | 说明                                                                                                                                                             | 依赖              |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| `@mfr/http` | 请求库:HTTP 内核(RESTful 语义化方法 / 业务信封解包 / 防重复 / 并发熔断 / 反馈适配器)+ 多接口编排层(MultiApiTask / BatchProcessor / DataLoaderService),零 UI 依赖 | `axios`(npm 依赖) |
+| 子包            | 说明                                                                                                                                                             | 依赖              |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `@mzy1120/http` | 请求库:HTTP 内核(RESTful 语义化方法 / 业务信封解包 / 防重复 / 并发熔断 / 反馈适配器)+ 多接口编排层(MultiApiTask / BatchProcessor / DataLoaderService),零 UI 依赖 | `axios`(npm 依赖) |
 
 ## 技术栈
 
@@ -21,10 +21,10 @@
 ```
 .
 ├── packages/                 # 可发布子包(packages/*)
-│   └── http/                 # @mfr/http(http 封装内核 + 多接口编排)
+│   └── http/                 # @mzy1120/http(http 封装内核 + 多接口编排)
 ├── tooling/                  # 工程共享配置(不可发布)
-│   ├── eslint-config/        # @mfr/eslint-config(flat 数组)
-│   ├── prettier-config/      # @mfr/prettier-config(shareable)
+│   ├── eslint-config/        # @mzy1120/eslint-config(flat 数组)
+│   ├── prettier-config/      # @mzy1120/prettier-config(shareable)
 │   └── tsconfig.base.json
 ├── scripts/release/          # 自定义版本 + 分组 changelog
 ├── .changeset/               # Changesets 配置与团队约定
@@ -33,14 +33,14 @@
 ```
 
 每个子包统一结构:`src/index.ts`(唯一聚合导出,禁止跨层级内部 import),源码按能力分层组织
-(新增能力 = 在 `src/` 下新建目录并在 `index.ts` 聚合)。以 `@mfr/http` 为例:
+(新增能力 = 在 `src/` 下新建目录并在 `index.ts` 聚合)。以 `@mzy1120/http` 为例:
 `src/http/`(方法一:封装 axios 请求)+ `src/orchestrator/`(方法二:批量处理请求),两层不互相 import;
 `tsconfig.json` extends 基座;`tsup.config.ts` 双格式打包;`package.json` 仅发布 `dist`。
 
-### @mfr/http 快速接入
+### @mzy1120/http 快速接入
 
 ```ts
-import http, { createHttpClient } from '@mfr/http'
+import http, { createHttpClient } from '@mzy1120/http'
 
 // ① 注入 UI 反馈适配器(库内零 UI 依赖;示例为 antd,ElementPlus 的 ElMessage 同理)
 http.setFeedback({
@@ -75,7 +75,7 @@ http.abortAll() // 取消当前全部在途请求
 
 > UI 反馈、token、401 登出均为适配器,不内置任何 UI 库;不注入 message 时错误会兜底 `console.error`,绝不静默吞错。
 
-### @mfr/http 多接口编排
+### @mzy1120/http 多接口编排
 
 编排层(MultiApiTask / BatchProcessor / DataLoaderService)与传输、UI 完全无关:每条数据要拉
 多个子接口时,把每个子接口封装成一个 `{ key, fetcher }` 配置,`fetcher(info, signal)` 返回
@@ -83,8 +83,8 @@ http.abortAll() // 取消当前全部在途请求
 限流并发;每个子接口结算都会触发一次 `onUpdate`,UI 可据此做细粒度进度展示与失败重试。
 
 ```ts
-import { DataLoaderService, TaskStatus, SubApiStatus } from '@mfr/http'
-import type { DataItemViewModel } from '@mfr/http'
+import { DataLoaderService, TaskStatus, SubApiStatus } from '@mzy1120/http'
+import type { DataItemViewModel } from '@mzy1120/http'
 
 // 一行订单需要拼装多个接口:库存、价格、备注
 interface OrderInfo {
@@ -191,12 +191,12 @@ pnpm run release:publish          # ④ preflight(lint/build/typecheck)+ 批量�
 
 ### 内部依赖联动
 
-当前可发布子包仅有 `@mfr/http`,其 `axios` 是 **npm 运行时依赖**(非 workspace 内部依赖),
+当前可发布子包仅有 `@mzy1120/http`,其 `axios` 是 **npm 运行时依赖**(非 workspace 内部依赖),
 暂无包间 workspace 依赖。内部依赖机制仍保留给后续新增子包:
 
-- 包间依赖写作 `"@mfr/<pkg>": "workspace:^"`,本地开发通过软链直达源码;
+- 包间依赖写作 `"@mzy1120/<pkg>": "workspace:^"`,本地开发通过软链直达源码;
 - `updateInternalDependencies: "patch"` 使上游升版时,下游自动补一个 patch 版本,其 CHANGELOG 生成「⬆️ 依赖更新」块
-  (发布产物中展示真实 semver,如 `@mfr/<上游包>@^0.1.0`)。
+  (发布产物中展示真实 semver,如 `@mzy1120/<上游包>@^0.1.0`)。
 
 **workspace 协议说明**:仓库内依赖始终写作 `workspace:^`(保证本地开发永远链接本地包);发布时由 pnpm
 在打包阶段自动改写为真实 semver(实测 `workspace:^` → `^0.1.0`),发布产物不含任何 `workspace:` 残留。
@@ -207,7 +207,7 @@ pnpm run release:publish          # ④ preflight(lint/build/typecheck)+ 批量�
   `pnpm run release:publish`
 - **单包发布**:先完成 ③ 版本提交,再单独发一个包:
   ```bash
-  pnpm --filter @mfr/http run build
+  pnpm --filter @mzy1120/http run build
   cd packages/http && pnpm publish --registry=<registry>
   ```
 - **企业私有源**(临时切换,勿长期写入 `.npmrc`):
