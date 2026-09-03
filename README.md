@@ -47,6 +47,8 @@ pnpm run pack:check          # tarball 内容 dry-run
 
 ## 版本与发布
 
+> changeset 书写规范见 [.changeset/README](.changeset/README.md);scope 包发布 / npm 组织说明见 [docs/npm-publish.md](docs/npm-publish.md)。
+
 提交类型:`feat` `fix` `perf` `refactor` `docs` `chore` `break`。Changeset 的 summary 以类型前缀开头,`pnpm run version` 据此归类进 CHANGELOG 分组并对应版本:
 
 | 前缀 / bump         | CHANGELOG 分组      | 版本  |
