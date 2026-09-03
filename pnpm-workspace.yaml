@@ -1,0 +1,8 @@
+packages:
+  - 'packages/*'
+  - 'tooling/*'
+
+# pnpm 10+ 将生命周期脚本白名单迁移到 workspace 配置。
+# esbuild(tsup 依赖)需要运行 postinstall 以完成平台二进制就绪。
+allowBuilds:
+  esbuild: true

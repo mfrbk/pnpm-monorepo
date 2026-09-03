@@ -1,0 +1,47 @@
+{
+  "name": "@mfr/monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "pnpm monorepo 前端工具库:多 scope 子包独立版本 / 独立打包 / 独立发布",
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=18.17.0"
+  },
+  "scripts": {
+    "build": "pnpm --filter \"./packages/**\" run build",
+    "typecheck": "pnpm --filter \"./packages/**\" run typecheck",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "changeset": "changeset",
+    "version": "node scripts/release/version.mjs",
+    "version:default": "changeset version",
+    "preflight": "pnpm run lint && pnpm run build && pnpm run typecheck",
+    "release:publish": "pnpm run preflight && changeset publish",
+    "pack:check": "pnpm --filter \"./packages/**\" pack --dry-run",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,js,cjs,mjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "devDependencies": {
+    "@changesets/cli": "^3.0.1",
+    "@commitlint/cli": "^21.2.2",
+    "@commitlint/config-conventional": "^21.2.2",
+    "@mfr/eslint-config": "workspace:*",
+    "@mfr/prettier-config": "workspace:*",
+    "eslint": "^10.9.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.4.1",
+    "prettier": "^3.9.6",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
+  }
+}

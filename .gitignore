@@ -1,0 +1,28 @@
+# ===== 构建产物:统一忽略,发包时由 npm/pnpm pack 自动收集 dist =====
+dist/
+**/dist/
+
+# ===== 依赖与缓存 =====
+node_modules/
+.pnpm-store/
+*.tsbuildinfo
+
+# ===== 日志 =====
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# ===== 本地环境 / 编辑器 =====
+.env
+.env.*
+!.env.example
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# ===== 发包临时产物 =====
+*.tgz
+coverage/
+
+# 说明:源码、配置文件、.changeset/*.md、pnpm-lock.yaml 均需提交,勿忽略

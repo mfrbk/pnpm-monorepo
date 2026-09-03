@@ -1,0 +1,21 @@
+{
+  "name": "@mfr/eslint-config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "@mfr monorepo 全局 ESLint flat 共享配置,子包零配置继承",
+  "main": "index.js",
+  "files": [
+    "index.js"
+  ],
+  "engines": {
+    "node": ">=18.17.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.9.1",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.12.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.69.0"
+  }
+}
