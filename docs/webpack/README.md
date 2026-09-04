@@ -1,60 +1,16 @@
-# Webpack 系统学习系列(总纲)
+# Webpack 学习系列(总纲)
 
-> [← 返回主 README](../../README.md) · Webpack 学习笔记:四大维度由浅入深,从"会写配置"到"懂原理"
-
-Webpack 上手不难——`entry` 填个入口、`output` 写个路径、rules 里贴一段 `babel-loader` 的复制粘贴配置,项目就能跑起来。但**只会背配置,项目一遇到体积暴涨、构建变慢、跨端复用、微前端改造,就无从下手**。真正的瓶颈在于:不知道每个配置项背后在解决什么问题,不知道构建过程内部发生了什么。
-
-本系列从**宏观到微观、从理论到实战**拆成四步,帮你在脑子里建立 Webpack 的完整知识体系:
-
-```
-① 核心概念与基础配置(地基)          ② 高阶性能优化(武器库)
-   Entry / Output / Loader               代码分割 / Tree Shaking
-   Plugin / Mode                          HMR / 缓存与提速
-          │                                        │
-          ▼                                        ▼
-③ 底层原理与源码架构(内功)           ④ 工程化实践与生态(落地)
-   构建生命周期 / Compiler/Compilation    配置拆分 / 产物分析
-   Tapable 钩子 / 模块依赖图               Module Federation / 工具选型
-```
-
-## 为什么按这个顺序学
-
-四个维度不是并列的知识点,而是一条**层层递进**的链路,后一层建立在前一层的心智模型上:
-
-| 篇目         | 解决什么问题               | 学到后能干什么                                                | 依赖基础 |
-| ------------ | -------------------------- | ------------------------------------------------------------- | -------- |
-| ① 核心概念   | "这行配置是干嘛的"         | 独立写出一份能跑的中小型配置,看懂别人的 webpack.config        | 无       |
-| ② 性能优化   | "打包慢 / 包太大怎么办"    | 拆分代码、砍冗余、上 HMR,把构建和产物体积调到理想状态         | ①        |
-| ③ 底层原理   | "Webpack 内部到底怎么运转" | 手写插件、自定义 loader、精准定位怪异问题,面试谈源码不虚      | ①        |
-| ④ 工程化落地 | "怎么放进真实项目并选型"   | 拆分配置、分析产物、用模块联邦做微前端,并理性对比 Vite/Rollup | ①②③      |
-
-一句话:**① 让你"能用",② 让你"用好",③ 让你"懂它",④ 让你"在真实世界里驾驭它"**。
+> Webpack 学习笔记:按 核心配置 → 性能优化 → 底层原理 → 工程化 递进,另附 HMR 与 Module Federation 两个专题。· [← docs 索引](../README.md)
 
 ## 文章索引
 
-| 篇目 | 文章                                                 | 一句话重点                                                                                          |
-| ---- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| 总纲 | 本文件                                               | 建立学习地图,决定每篇看什么                                                                         |
-| 一   | [核心概念与基础配置](./core-config.md)               | 五大核心概念:Entry/Output/Loader/Plugin/Mode,含 `[contenthash]`、loader 链、`publicPath` 等易错细节 |
-| 二   | [性能优化:体积与速度](./performance.md)              | 代码分割三手段、Tree Shaking 与 `sideEffects`、HMR 通信、持久化缓存与多线程提速                     |
-| 三   | [底层原理与源码架构](./internals.md)                 | 构建生命周期、Compiler vs Compilation、Tapable 钩子、AST 解析与依赖图构建                           |
-| 四   | [工程化实践与生态](./engineering.md)                 | 配置拆分、产物分析、Source Map 策略、Asset Modules、Module Federation、构建工具选型                 |
-| 专题 | [热更新(HMR)原理](./hmr.md)                          | 深度拆解:watch 增量编译 → WS 推 hash → manifest/补丁拉取 → hotApply 冒泡替换 → 状态保留的本质       |
-| 专题 | [模块联邦 Module Federation](./module-federation.md) | 运行时共享模型 / remoteEntry 机制 / host+remote 从零搭建 / shared 与 singleton 版本协商 / 选型边界  |
+| 篇目 | 文章                                                 | 一句话重点                                                                                                  | 前置依赖 |
+| ---- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | -------- |
+| 一   | [核心概念与基础配置](./core-config.md)               | 五大核心概念 Entry / Output / Loader / Plugin / Mode,含 `[contenthash]`、loader 链、`publicPath` 等易错细节 | 无       |
+| 二   | [性能优化:体积与速度](./performance.md)              | 代码分割三手段 / Tree Shaking 与 `sideEffects` / HMR 通信 / 持久化缓存与多线程提速                          | 一       |
+| 三   | [底层原理与源码架构](./internals.md)                 | 构建生命周期 / Compiler vs Compilation / Tapable 钩子 / AST 解析与依赖图                                    | 一       |
+| 四   | [工程化实践与生态](./engineering.md)                 | 配置拆分 / 产物分析 / Source Map 策略 / Asset Modules / Module Federation / 构建工具选型                    | 一二三   |
+| 专题 | [热更新(HMR)原理](./hmr.md)                          | watch 增量编译 → WS 推 hash → manifest/补丁拉取 → hotApply 冒泡替换 → 状态保留的本质                        | 二、三   |
+| 专题 | [模块联邦 Module Federation](./module-federation.md) | 运行时共享模型 / remoteEntry 机制 / host+remote 从零搭建 / shared 与 singleton 版本协商 / 选型边界          | 一、三   |
 
-## 动手建议
-
-只看不练很容易"眼睛会了手不会"。配合一套最小演示项目效果最好,推荐做法:
-
-1. **搭一个多页小项目**:两个入口页 + 共用工具函数,手动给 `output.filename` 换成 `[name]/[chunkhash]/[contenthash]`,观察每次改动后产出的文件名变化——这一步能把"哈希占位符"烙进脑子。
-2. **给一个重复大库(如 lodash)做分割**:分别用「多入口 + 手动引」「动态 `import()`」「`splitChunks`」三种方式做一遍,对比产物,体会三种代码分割的适用场景。
-3. **写两个最小插件**:一个 `Compilation` 阶段数模块个数,一个在 `emit` 阶段往产物里追加文件——之后再看 [底层原理](./internals.md) 里"插件到底在哪介入"就通了。
-4. **最后开一个 `stats.json` 用 Bundle Analyzer 看一次真实项目的体积分布**,再对照 [工程化](./engineering.md) 做取舍。
-
-## 学习心法
-
-- **先问"要解决什么问题",再看"配置怎么回答"**:每个优化项背后都有明确痛点,带着问题看文档才不会迷失在 API 海里。
-- **配置会骗人,产物不会**:对"哪个配置生效了、产生了什么效果"有争议时,直接 `webpack --profile --json` 看真实产物和 stats。
-- **把它当"代码"而非"配置"来读**:Webpack 本身就是一个跑在 Node 上的 JS 程序,配置只是它的入参。[底层原理](./internals.md) 里几乎所有概念,都能在源码目录里找到同名文件。
-
-> 官方文档:webpack.js.org(概念 / 配置 / API 三栏)、webpack.js.org/concepts 起步。命令与版本以官方文档为准;本系列以 **Webpack 5** 为基准,文中出现的版本差异会单独标注。
+> 官方文档:webpack.js.org(概念 / 配置 / API)。本系列以 Webpack 5 为基准,版本差异在文中单独标注;Vite / Rollup 对比见[对应系列](../vite/README.md)。

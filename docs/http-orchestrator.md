@@ -1,8 +1,8 @@
 # @mzy1120/http · 多接口编排
 
-> [← 返回主 README](../README.md) · 所属功能库 `@mzy1120/http`,传输基础见 [请求封装(HTTP 内核)](./http-request.md)
+> 与传输、UI 无关的多接口编排层(MultiApiTask / BatchProcessor / DataLoaderService);功能库 `@mzy1120/http`,传输基础见 [请求封装(HTTP 内核)](./http-request.md)。· [← 返回 docs 索引](./README.md)
 
-编排层(MultiApiTask / BatchProcessor / DataLoaderService)与传输、UI 无关:一条数据需拼装多个子接口时,把每个子接口封装成 `{ key, fetcher }`;`fetcher(info, signal)` 返回 `Promise`(内部可用 `http.get<T>` 等实现,已解包信封)。`DataLoaderService` 负责按 id 去重、取消后替换、限流并发;每个子接口结算触发一次 `onUpdate`,UI 据此做细粒度进度与失败重试。
+编排一条数据需拼装多个子接口时,把每个子接口封装成 `{ key, fetcher }`;`fetcher(info, signal)` 返回 `Promise`(内部可用 `http.get<T>` 等实现,已解包信封)。`DataLoaderService` 负责按 id 去重、取消后替换、限流并发;每个子接口结算触发一次 `onUpdate`,UI 据此做细粒度进度与失败重试。
 
 ## 核心概念
 

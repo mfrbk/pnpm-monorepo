@@ -1,10 +1,10 @@
 # Rollup 工程化配置与实战
 
-> [← 返回总纲](./README.md) · 本系列第 2 篇:rollup.config 全解 / external / node-resolve · commonjs · babel · typescript / 分割与 Source Map
+> 本系列第 2 篇:rollup.config 全解 / external / node-resolve · commonjs · babel · typescript / 分割与 Source Map。· [← 返回总纲](./README.md)
 
-上一篇讲清 Rollup 的"为什么强",这一篇把它落进真实类库工程:配置不多,但**顺序和职责比字段本身更重要**——尤其要理解"Rollup 内核只认 ESM + 相对路径导入",其余全靠配置与插件补齐。
+Rollup 内核只认 ESM + 相对路径导入,其余靠配置与插件补齐。
 
-## 一、一份配置的结构:input → output → plugins
+## 一、配置结构:input → output → plugins
 
 ```js
 // rollup.config.js
@@ -20,11 +20,11 @@ export default {
 }
 ```
 
-执行 `rollup -c` 即按此构建。与 Webpack 最大的心智差异:**Rollup 没有 dev/prod 的"mode"概念、默认不做压缩**——环境差异基本都体现在"输出哪种格式 + 是否压缩"上,由你自己组织(可写多个 output,或配合命令行/环境变量)。
+执行 `rollup -c` 即按此构建。与 Webpack 的心智差异:**Rollup 没有 dev/prod 的"mode"概念、默认不做压缩**——环境差异基本都体现在"输出哪种格式 + 是否压缩",由你自己组织(多个 output,或配合命令行/环境变量)。
 
 ## 二、external:库的边界,决定"哪些不进产物"
 
-**问题**:如果库代码 `import { debounce } from 'lodash'`,而你把 lodash 也打进产物,消费者 `require('my-lib')` 时会被迫**重复装一份 lodash**,体积与版本都失控。类库的原则是:**第三方依赖(尤其 `dependencies`/`peerDependencies`)应当 external——留在外面,由消费者提供。**
+库代码 `import { debounce } from 'lodash'` 若把 lodash 打进产物,消费者 `require('my-lib')` 会**重复装一份 lodash**,体积与版本都失控。类库原则:**第三方依赖(尤其 `dependencies`/`peerDependencies`)应当 external——留在外面,由消费者提供。**
 
 ```js
 import { readFileSync } from 'node:fs'
@@ -46,21 +46,21 @@ export default {
 
 **external 与产物格式的关系**:
 
-- `format: 'es'/'cjs'`:外部依赖保留为 `import ... from 'lodash'` / `require('lodash')`,由 Node 或打包器在运行时解析;
-- `format: 'iife'/'umd'`:**没有模块系统可 require**,必须配合 `output.globals` 把外部依赖映射到运行时全局变量(见 [核心篇](./core.md) 的例子),否则浏览器里找不到 `lodash` 这个标识。
+- `format: 'es'/'cjs'`:外部依赖保留为 `import ... from 'lodash'` / `require('lodash')`,由 Node 或打包器运行时解析;
+- `format: 'iife'/'umd'`:**没有模块系统可 require**,必须配合 `output.globals` 把外部依赖映射到运行时全局变量(见 [核心篇](./core.md) 的例子),否则浏览器里找不到 `lodash`。
 
-> 判断一句话:**"这个模块最终由谁提供?"** 由消费者提供 → external;由你的库自带/内联 → 打包进来。基础库(React)、运行时依赖统统走前者。
+> 判断:**"这个模块最终由谁提供?"** 由消费者提供 → external;由你的库自带/内联 → 打包进来。基础库(React)、运行时依赖统统走前者。
 
-## 三、核心插件:把"ESM + 相对路径"之外的现实补上
+## 三、核心插件:补上"ESM + 相对路径"之外的现实
 
-Rollup 内核只做三件事:解析相对路径、拼接模块、输出。真实世界还有 node_modules、CJS 包、TS/Babel 源码、压缩——全部交给插件。四个必会的 `@rollup/plugin-*`:
+Rollup 内核只做三件事:解析相对路径、拼接模块、输出。真实世界的 node_modules、CJS 包、TS/Babel 源码、压缩——全部交给插件:
 
-| 插件                          | 解决什么                      | 说明                                                                                                                           |
-| ----------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `@rollup/plugin-node-resolve` | **通过包名导入 node_modules** | 默认行为是把"裸模块导入"当 external;不加它,`import 'lodash'` 会留在产物里等运行时,而不是被解析打包(对库常配合 external 排除掉) |
-| `@rollup/plugin-commonjs`     | **把 CJS 转成 ESM**           | npm 大量包是 `require/exports` 写的,Rollup 不认 → 必须先转                                                                     |
-| `@rollup/plugin-babel`        | Babel 转译(业务代码语法降级)  | 类库常用来兼容老环境语法;配 `babelHelpers` 策略                                                                                |
-| `@rollup/plugin-typescript`   | TypeScript 编译(tsc 全权)     | 走 tsc:能做类型检查 + 产出 `.d.ts`;想要 esbuild 级别的快可换 `rollup-plugin-esbuild`                                           |
+| 插件                          | 解决什么                      | 说明                                                                                                    |
+| ----------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `@rollup/plugin-node-resolve` | **通过包名导入 node_modules** | 默认把"裸模块导入"当 external;不加它,`import 'lodash'` 会留在产物里等运行时(对库常配合 external 排除掉) |
+| `@rollup/plugin-commonjs`     | **把 CJS 转成 ESM**           | npm 大量包是 `require/exports` 写的,Rollup 不认 → 必须先转                                              |
+| `@rollup/plugin-babel`        | Babel 转译(业务代码语法降级)  | 类库常用来兼容老环境语法;配 `babelHelpers` 策略                                                         |
+| `@rollup/plugin-typescript`   | TypeScript 编译(tsc 全权)     | 走 tsc:能做类型检查 + 产出 `.d.ts`;要 esbuild 级快可换 `rollup-plugin-esbuild`                          |
 
 典型组合(从 npm 依赖 + TS 源码打库):
 
@@ -89,16 +89,16 @@ export default {
 
 **两条实战提醒**:
 
-1. **顺序即语义**:`nodeResolve`(定位文件)要在 `commonjs`(转换内容)之前,`commonjs` 要在 **transform 类插件之后、但处理的是其转译产物**——遇到"CJS 包没被转换"的报错,先查插件顺序。
-2. **CommonJS 具名导出的坑**:CJS 包的导出是运行时对象,`commonjs` 只能**尽力静态推断**具名导出,推断不出时就只剩 default。老 CJS 包若在库内被具名导入失败,优先换 ESM 版依赖(如 `lodash-es`),而不是硬拗配置——这与 [Webpack 系列](../webpack/README.md) 里"摇树要 ESM"是同一课。
+1. **顺序即语义**:`nodeResolve`(定位文件)要在 `commonjs`(转换内容)之前。遇到"CJS 包没被转换"的报错,先查插件顺序。
+2. **CommonJS 具名导出的坑**:CJS 包的导出是运行时对象,`commonjs` 只能**尽力静态推断**具名导出,推断不出时只剩 default。老 CJS 包在库内被具名导入失败,优先换 ESM 版依赖(如 `lodash-es`)——与 [Webpack 系列](../webpack/README.md) 里"摇树要 ESM"是同一课。
 
 ## 四、代码分割 / 多入口 / Source Map
 
 ### 代码分割与多入口
 
-类库通常**不主动分割**(一个文件最好分发),但两个场景会用到:
+类库通常**不主动分割**(一个文件最好分发),两个场景会用到:
 
-- **多入口**:一个包暴露多个子入口(如 `my-lib/core`、`my-lib/react`)时,`input` 写成对象并 `output.dir` + `output.format: 'es'`:
+- **多入口**:一个包暴露多个子入口(如 `my-lib/core`、`my-lib/react`)时,`input` 写成对象并 `output.dir` + `format: 'es'`:
 
 ```js
 export default {
@@ -110,11 +110,11 @@ export default {
 }
 ```
 
-- **动态 `import()` 懒加载**:Rollup 会自动把异步依赖拆成独立 chunk(需要 `output.dir`)。注意 **`format: 'iife'/'umd'` 不支持代码分割**(单文件无法承载异步 chunk),要用回 `es`/`cjs` 或交给 `system`。
+- **动态 `import()` 懒加载**:Rollup 自动把异步依赖拆成独立 chunk(需要 `output.dir`)。注意 **`format: 'iife'/'umd'` 不支持代码分割**(单文件无法承载异步 chunk),用回 `es`/`cjs` 或交给 `system`。
 
 ### Source Map:库里要不要带
 
-打库的标准答案是:**带**,但默认生成 map 文件、引用写在产物末尾:
+打库的标准答案是**带**,默认生成 map 文件、引用写在产物末尾:
 
 ```js
 output: {
@@ -123,11 +123,11 @@ output: {
 }
 ```
 
-配合第三节的 `typescript({ declaration: true })` 输出 `.d.ts`,一个库的"JS + Map + 类型"三件套就齐了——**别只发 JS 不发类型**,否则 TS 消费者拿到的是 `any`,等于浪费了库的类型设计。
+配合第三节的 `typescript({ declaration: true })` 输出 `.d.ts`,一个库的"JS + Map + 类型"三件套就齐了——**别只发 JS 不发类型**,否则 TS 消费者拿到的是 `any`。
 
 ## 五、一份"打真实库"的配置全貌
 
-把本篇知识点整合(以 TS 源码 + React peerDependency + 多格式为例):
+以 TS 源码 + React peerDependency + 多格式为例:
 
 ```js
 import { nodeResolve } from '@rollup/plugin-node-resolve'
@@ -163,7 +163,7 @@ export default {
 }
 ```
 
-> 与"开箱即用"的 tsup(本仓库 `@mzy1120/*` 子包正在用,底层 esbuild 打码 + Rollup 合并 d.ts)相比,**裸 Rollup** 的优点是极致的可控与零隐式依赖,代价是上面的配置要自己攒——这也是 [Vite 系列](../vite/README.md) 说"打包库可选 tsup/Rollup/Vite lib mode"的原因,三者按团队掌控力取舍。
+> 与"开箱即用"的 tsup(本仓库 `@mzy1120/*` 子包在用,底层 esbuild 打码 + Rollup 合并 d.ts)相比,**裸 Rollup** 优点是极致可控与零隐式依赖,代价是配置要自己攒——这也是 [Vite 系列](../vite/README.md) 说"打包库可选 tsup/Rollup/Vite lib mode"的原因。
 
 ## 速查
 

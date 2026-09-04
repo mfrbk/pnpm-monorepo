@@ -1,8 +1,6 @@
 # RESTful API 对接规范
 
-> [← 返回主 README](../README.md) · 本仓库 `@mzy1120/http` 即按此语义封装,见 [http-request.md](./http-request.md)
-
-RESTful API 以**资源**为中心:URL 唯一标识资源,用标准 HTTP 方法做无状态通信。前后端按统一约定交互,便于设计、联调与维护。
+> 前后端交互约定:RESTful API 以**资源**为中心——URL 唯一标识资源,标准 HTTP 方法做无状态通信,统一信封与状态码。本仓库 `@mzy1120/http` 即按此语义封装,见 [http-request](./http-request.md)。· [← 返回 docs 索引](./README.md)
 
 ## 核心原则
 

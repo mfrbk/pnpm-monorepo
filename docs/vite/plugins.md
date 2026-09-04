@@ -1,14 +1,14 @@
 # Vite 插件系统与 TypeScript
 
-> [← 返回总纲](./README.md) · 本系列第 3 篇:Rollup 兼容插件模型 / 官方插件 / TS 的"esbuild 转译"与"类型检查"为何分离
+> 本系列第 3 篇:Rollup 兼容插件模型 / 官方插件 / TS 的"esbuild 转译"与"类型检查"为何分离。· [← 返回总纲](./README.md)
 
-配置项解决"怎么用",插件解决"怎么扩"。Vite 之所以有今天这么大的生态,根源是**它的插件模型几乎原样继承了 Rollup**——这意味着 Rollup 社区积累的插件能直接流入 Vite。这一篇讲清三件事:**插件往哪挂**(接口与钩子)、**官方帮你备好了什么**、**TypeScript 到底由谁负责**(以及那个著名的坑:"为什么我 TS 类型写错了,Vite 不报错")。
+配置项解决"怎么用",插件解决"怎么扩"。Vite 的插件模型几乎原样继承 Rollup,Rollup 社区的插件能直接流入 Vite。
 
 ## 一、插件模型:Rollup 兼容 + Vite 扩展
 
 ### 1. 一套接口,两个环境
 
-Vite 复用了 **Rollup 的插件接口**:写插件只需导出一个**带 `name` 和若干钩子函数**的对象。这些钩子分两类:
+Vite 复用 **Rollup 的插件接口**:插件是一个带 `name` 和若干钩子函数的对象。钩子分两类:
 
 | 类别                                    | 钩子(节选)                       | 作用                              |
 | --------------------------------------- | -------------------------------- | --------------------------------- |
@@ -21,11 +21,11 @@ Vite 复用了 **Rollup 的插件接口**:写插件只需导出一个**带 `name
 |                                         | `transformIndexHtml`             | 转换 index.html                   |
 |                                         | `handleHotUpdate`                | 拦截/定制 HMR 更新                |
 
-**同一个插件接口能同时服务 dev 与 build**,这是 Vite 生态能"一个插件到处用"的根基(对比:Webpack 的 loader/plugin 是另一套体系,不能通用)。
+同一个插件接口能同时服务 dev 与 build,这是 Vite 生态"一个插件到处用"的根基(对比:Webpack 的 loader/plugin 是另一套体系,不能通用)。
 
 ### 2. 执行顺序:pre / normal / post
 
-多个插件对同一个模块都会触发 `transform` 时,顺序由 **`enforce`** 控制,与 Webpack loader 的 `enforce: 'pre'/'post'` 思路同源:
+多个插件对同一模块都触发 `transform` 时,顺序由 **`enforce`** 控制,与 Webpack loader 的 `enforce: 'pre'/'post'` 思路同源:
 
 ```ts
 // 默认按数组顺序(normal);别名/特殊改写类插件用 enforce 抢到最前或最后
@@ -36,11 +36,11 @@ Vite 复用了 **Rollup 的插件接口**:写插件只需导出一个**带 `name
 }
 ```
 
-经验:需要**最早看到原始内容**的(如宏替换)用 `pre`,需要**最后再改一遍产物**的用 `post`,其余不写 `enforce` 即可。
+需要最早看到原始内容的(如宏替换)用 `pre`,需要最后再改一遍产物的用 `post`,其余不写 `enforce`。
 
-### 3. 10 行写一个能跑的插件
+### 3. 最小插件示例
 
-最容易上手的一类:给 `index.html` 注入信息(理解"钩子 = 在某个时机插一脚"):
+给 `index.html` 注入信息:
 
 ```ts
 // build-info.ts —— 把构建时间写进 HTML 的 <head>
@@ -92,7 +92,7 @@ export default defineConfig({
 
 > `plugin-legacy` 的本质:现代浏览器走原生 ESM 产物(小、快),旧浏览器自动切到 **SystemJS 格式 + polyfill** 的降级产物。代价是额外生成一套代码并增加构建时间,所以 **targets 收敛到真实需求**,别默认覆盖最老的一批浏览器。
 
-### 社区生态(高频出现,先混个脸熟)
+### 社区生态
 
 | 插件                                               | 解决什么                                                                  |
 | -------------------------------------------------- | ------------------------------------------------------------------------- |
@@ -103,38 +103,38 @@ export default defineConfig({
 
 ## 三、TypeScript:esbuild 只"转译",不"查类型"
 
-### 1. 事实:类型错误,Vite 默认根本不报
+### 1. esbuild 的定位
 
-很多 TS 新手第一次被 Vite"坑"是:**把类型写错、函数名拼错,Vite 照样跑得飞起**。这不是 Vite 的 bug,而是刻意设计——Vite 用 **esbuild 把 `.ts` 当"带类型的 JS"处理,只做"剥掉类型"的转译,不做类型检查**:
+把类型写错、函数名拼错,Vite 照样跑——这是刻意设计:Vite 用 **esbuild 把 `.ts` 当"带类型的 JS"处理,只做"剥掉类型"的转译,不做类型检查**:
 
 ```
 esbuild:  .ts  ──►  去类型 → 得到 JS   (快,毫秒级,不做跨文件分析)
 tsc:      .ts  ──►  全量类型检查       (慢,秒级,需要类型信息与跨文件推断)
 ```
 
-类型检查慢、且是**锦上添花**——它不影响"代码能不能跑"。Vite 把"让代码立刻跑起来"与"严格查类型"**拆成两件事,分别交给 esbuild 与 tsc**,用"快"换掉"每次保存都等类型检查"。
+类型检查慢、且不影响"代码能不能跑"。Vite 把"让代码立刻跑起来"与"严格查类型"拆成两件事,分别交给 esbuild 与 tsc。
 
 ### 2. 代价:esbuild 是"孤立文件转译"
 
-esbuild **一次只看一个文件**,拿不到跨文件类型信息。于是某些**依赖"全程序类型分析"的写法**行为会变,TS 为此专门立了约束,你也该在 `tsconfig.json` 里打开对应开关:
+esbuild 一次只看一个文件,拿不到跨文件类型信息。某些依赖"全程序类型分析"的写法行为会变,应在 `tsconfig.json` 打开对应开关:
 
 ```jsonc
 {
   "compilerOptions": {
-    "isolatedModules": true, // 打开它,让 esbuild 不兼容的写法在编辑器/tsc 就报出来
+    "isolatedModules": true, // 让 esbuild 不兼容的写法在编辑器/tsc 就报出来
     "verbatimModuleSyntax": true, // 可选:强制 type-only 导入显式写 import type
   },
 }
 ```
 
-具体约束(最常踩的两条):
+最常踩的两条约束:
 
-- **类型再导出必须写 `export type` / `import type`**:`export { SomeType }` 若不加 `type`,esbuild 可能误当成值导出而保留下一个不存在的变量 → 运行时崩;
+- **类型再导出必须写 `export type` / `import type`**:`export { SomeType }` 不加 `type`,esbuild 可能误当成值导出而保留下一个不存在的变量 → 运行时崩;
 - **别依赖 `const enum` 等需跨文件内联的类型特性**:esbuild 按单文件处理,行为与 tsc 可能不一致。
 
-> 一句话:**转译问 esbuild,类型问 tsc**。把"查类型"显式接回来,是 Vite + TS 项目的标准收尾动作,见下。
+> 分工:**转译问 esbuild,类型问 tsc**。"查类型"要显式接回来,见下。
 
-### 3. 怎么把类型检查"接回来"
+### 3. 把类型检查"接回来"
 
 | 时机    | 做法                                                              |
 | ------- | ----------------------------------------------------------------- |
@@ -153,7 +153,7 @@ esbuild **一次只看一个文件**,拿不到跨文件类型信息。于是某�
 }
 ```
 
-`vite-plugin-checker` 的形态(可同时纳管 ESLint):
+`vite-plugin-checker`:
 
 ```ts
 import checker from 'vite-plugin-checker'
@@ -168,11 +168,11 @@ export default defineConfig({
 })
 ```
 
-**为什么值得这么绕?** 换来的是:开发期依旧毫秒级转译,**类型正确性由编辑器 + CI 守护**,两者互不拖累——这是"转译/检查分离"的正确打开方式。
+换来的是:开发期依旧毫秒级转译,**类型正确性由编辑器 + CI 守护**,两者互不拖累——"转译/检查分离"的意义所在。
 
 ## 四、静态资源与高级导入
 
-Vite 对资源"开箱即用"的程度远超 Webpack 默认配置。这里按"写法"而不是"配置"记忆:
+资源"开箱即用",按"写法"而非"配置"记忆。
 
 ### 普通资源:import 即得 URL
 
@@ -180,7 +180,7 @@ Vite 对资源"开箱即用"的程度远超 Webpack 默认配置。这里按"写
 import logo from './logo.png' // 开发返回原 URL;build 自动哈希、按体积内联
 ```
 
-构建时小于 `build.assetsInlineLimit`(默认 **4KB**)的资源自动转 base64 内联,减少请求;超过则输出为带哈希的文件并返回 URL——心智与 Webpack 的 Asset Modules 一致(可对照 [Webpack 工程化篇](../webpack/engineering.md))。
+构建时小于 `build.assetsInlineLimit`(默认 **4KB**)的资源自动转 base64 内联,减少请求;超过则输出为带哈希的文件并返回 URL——心智与 Webpack 的 Asset Modules 一致(对照 [Webpack 工程化篇](../webpack/engineering.md))。
 
 ### JSON:直接导入,具名导入利于摇树
 
@@ -191,7 +191,7 @@ import pkg from './package.json' // 默认导出整个对象
 
 ### Glob 导入:批量拿一组模块
 
-`import.meta.glob` 是 Vite 的特色能力,适合**约定式目录**批量加载(如自动收集路由、按语言加载多语言文件):
+`import.meta.glob` 适合**约定式目录**批量加载(自动收集路由、按语言加载多语言文件):
 
 ```ts
 // 懒加载:返回 { 路径: () => import(路径) }
@@ -210,9 +210,9 @@ const mods = import.meta.glob('./dir/*.js', { import: 'setup', eager: true })
 const Chart = (await import('./charts/line.js')).default // build 时自动拆出独立 chunk
 ```
 
-### new URL(..., import.meta.url):拿到资源真实地址
+### new URL(..., import.meta.url):拿资源真实地址
 
-浏览器的标准写法,Vite 在构建期会静态分析并解析成最终资源 URL。**它必须写成可静态分析的 `new URL('./相对路径', import.meta.url)` 形式**,拼接变量则无法解析:
+浏览器标准写法,Vite 在构建期静态分析并解析成最终资源 URL。必须写成可静态分析的 `new URL('./相对路径', import.meta.url)` 形式,拼接变量无法解析:
 
 ```ts
 const url = new URL('./assets/bg.png', import.meta.url).href // 开发=源地址,build=带哈希产物地址

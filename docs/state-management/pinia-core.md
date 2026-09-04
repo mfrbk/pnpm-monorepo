@@ -1,16 +1,14 @@
 # Pinia 内核:与 Vue 响应式系统的结合
 
-> [← 返回总纲](./README.md) · 解剖问题单在 Pinia 的答案:store 为什么是 `reactive`、getter 为什么自动缓存、为什么必须 `app.use(pinia)`
+> 解剖问题单在 Pinia 的答案:store 为什么是 `reactive`、getter 为什么自动缓存、为什么必须 `app.use(pinia)`。· [← 返回总纲](./README.md)
 
-Zustand 半场读完了:它自己写了"存 + 订阅",再用 `useSyncExternalStore` 把订阅接进 React。Pinia 走的是**另一条路**:它几乎不自己写"变更如何通知 UI"——它把状态做成 **Vue 的响应式对象**,把"谁读了、谁该更新"这件最难的事**整个外包给 Vue 自己**。
+Zustand 自己写"存 + 订阅",再用 `useSyncExternalStore` 接进 React。Pinia 走另一条路:**几乎不自己写"变更如何通知 UI"**——把状态做成 **Vue 的响应式对象**,把"谁读了、谁该更新"**整个外包给 Vue**。
 
-所以读 Pinia 内核前,必须先有一张 Vue 响应式的地图。本篇顺序:**① Vue 响应式最小内核 → ② createPinia(全局底座)→ ③ defineStore(惰性建店)→ ④ createSetupStore(引擎本体,store 如何被造出来)**。
+读 Pinia 内核前先要有一张 Vue 响应式地图:① Vue 响应式最小内核 → ② `createPinia`(全局底座)→ ③ `defineStore`(惰性建店)→ ④ `createSetupStore`(引擎本体)。
 
 ## 一、Vue 3 响应式最小内核:track / trigger / effect
 
-一句话:**Vue 不靠订阅列表,靠"读取时记录、写入时通知"。** 当你读一个响应式对象时,系统记下"谁在读";当你改它时,系统去通知"刚才那些在读的人"。
-
-最小骨架可概括为三个原语:
+**Vue 不靠订阅列表,靠"读取时记录、写入时通知"**:读响应式对象时记下"谁在读",改它时通知"刚才在读的人"。
 
 ```
 reactive(obj)  用 Proxy 包对象:get → track(target, key)  // 读取时登记当前 effect
@@ -22,13 +20,13 @@ effect(fn)     立刻执行 fn,执行期间所有 track 都登记到"当前这�
 追一层:
 
 - **`ref`** 包装原始值/对象成 `{ value }`,`reactive` 处理对象内部;
-- **`computed(fn)`** 是"带缓存的 effect":内部跑一个惰性 effect 做依赖追踪,`value` 首次读取才求值并缓存;某依赖一变,置脏,下次读取重算——**缓存自动、失效自动、按需重算**;
-- **`effectScope(scope)`** 把一组 effect 收进一个"作用域",可整体 `stop()`(Pinia 用它做单个 store 的销毁);
-- **`watch(source, cb, { deep, flush })`** 在 effect 之上加"源变化→回调"的语义,`flush: 'pre'` 表示在组件更新前跑、`'sync'` 表示同步跑。
+- **`computed(fn)`** 是"带缓存的 effect":内部跑惰性 effect 做依赖追踪,`value` 首次读取才求值并缓存;依赖一变置脏,下次读取重算——**缓存自动、失效自动、按需重算**;
+- **`effectScope(scope)`** 把一组 effect 收进一个"作用域",可整体 `stop()`(Pinia 用它做单 store 销毁);
+- **`watch(source, cb, { deep, flush })`** 在 effect 之上加"源变化→回调"语义,`flush: 'pre'` = 组件更新前跑、`'sync'` = 同步跑。
 
-这套系统有一个 Zustand 完全没有的特性:**"通知的粒度"是依赖追踪自动给出的**。某个组件/`computed` 只读了 `obj.a`,那只有 `a` 变化才让它重算;它从不读 `b`,`b` 怎么变都与它无关。没有 selector、没有手动订阅——**精准是响应式系统白送的**。Pinia 的引擎就是"怎么把 store 做成这样一组响应式对象"。
+这套系统有 Zustand 完全没有的特性:**"通知粒度"由依赖追踪自动给出**。组件/`computed` 只读了 `obj.a`,只有 `a` 变化才让它重算;从不读 `b`,`b` 怎么变都与它无关。没有 selector、没有手动订阅——**精准是响应式系统白送的**。Pinia 的引擎就是"怎么把 store 做成这样一组响应式对象"。
 
-> 概念示意,非 Vue 源码;深读见 vuejs.org 的 "深入响应式系统"。后面会看到 Pinia 每个机制都精确踩在这四个原语上。
+> 概念示意,非 Vue 源码;深读见 vuejs.org 的"深入响应式系统"。后面会看到 Pinia 每个机制都踩在这四个原语上。
 
 ## 二、createPinia:一个"响应式状态桶 + 插件清单"的底座
 
@@ -66,16 +64,16 @@ function createPinia() {
 }
 ```
 
-读懂的四个点:
+四个关键点:
 
-1. **`state = ref({})` 是唯一的全局内存**:`pinia.state.value` 是一个以 store id 为 key 的普通对象,像这样 `{ user: {…}, cart: {…} }`。每个 store 的**状态本体最终都挂进这个对象**(后面 `createSetupStore` 会做 `pinia.state.value[$id][key] = prop`),这就是 Pinia store 的"序列化/调试/DevTools"统一入口,也解释了为什么 Pinia 能做到**默认深度响应式 + 可整体观测**;
-2. **`_s: Map<id, store>` 是注册表**:store 建好后登记于此,`useStore()` 查它拿单例。`Map` 而非对象,所以 store id 可以是任意字符串;
-3. **provide/inject 解决"store 属于哪个应用"**:`app.use(pinia)` 触发 `install`,`app.provide(piniaSymbol, pinia)` 把 pinia 实例下发给组件树。于是组件里调 `useUserStore()` 不传参数也能从注入解析到 pinia(见下节 `defineStore`),并且**不同 app 实例可有各自独立的 store 集合**——这是"为什么必须 `app.use(pinia)`"的答案;
-4. **`effectScope(true)` 提供全局销毁开关**:`disposePinia` 只需 `pinia._e.stop()` 就能停掉桶里所有 effect(测试与多实例场景用它)。
+1. **`state = ref({})` 是唯一的全局内存**:`pinia.state.value` 以 store id 为 key:`{ user: {…}, cart: {…} }`。每个 store 的**状态本体最终都挂进这个对象**(`createSetupStore` 做 `pinia.state.value[$id][key] = prop`)。这是序列化/调试/DevTools 统一入口,也解释了 Pinia 为何**默认深度响应式 + 可整体观测**;
+2. **`_s: Map<id, store>` 是注册表**:store 建好后登记于此,`useStore()` 查它拿单例。用 `Map`,store id 可为任意字符串;
+3. **provide/inject 解决"store 属于哪个应用"**:`app.use(pinia)` 触发 `install`,`app.provide(piniaSymbol, pinia)` 下发给组件树。组件里调 `useUserStore()` 不传参数也从注入解析到 pinia,且**不同 app 实例可有各自独立的 store 集合**——"为什么必须 `app.use(pinia)`"的答案;
+4. **`effectScope(true)` 提供全局销毁开关**:`disposePinia` 只需 `pinia._e.stop()` 停掉桶里所有 effect(测试与多实例场景)。
 
 ## 三、defineStore:只负责"懒"——真正建店在第一次 useStore()
 
-`defineStore` 并不创建 store,它返回一个 **useStore 函数**;store 是**第一次调用 useStore() 时才被创建**(惰性)。核心源码:
+`defineStore` 不创建 store,返回一个 **useStore 函数**;store 在**第一次调用 useStore() 时才创建**(惰性):
 
 ```ts
 function defineStore(id, setup, setupOptions) {
@@ -102,14 +100,14 @@ function defineStore(id, setup, setupOptions) {
 
 关键行为:
 
-- **resolve pinia 的优先级**:显式传入的 pinia → 组件上下文 `inject(piniaSymbol)` → 全局 `activePinia`。`setActivePinia` 在每次真正建店前被设好,保证嵌套 createOptionsStore 时 getter 能取到正确的 pinia;
-- **"用了才建、建一次永复用"**:同一个 id 只会 `createSetupStore` / `createOptionsStore` 一次,之后 `_s.get(id)` 直达单例——**这是 Pinia 单例语义的实现位置**;
-- **双形态的判定在 defineStore 就定**:传函数 = **setup store**(更底层),传 options 对象 = **options store**(语法糖,见下节);
-- 报错信息直白提示:**组件外用 store 前要保证有激活的 pinia**(例如测试里 `setActivePinia(createPinia())`,或先 `app.use(pinia)`)。
+- **resolve pinia 的优先级**:显式传入的 pinia → 组件上下文 `inject(piniaSymbol)` → 全局 `activePinia`。`setActivePinia` 在真正建店前被设好,保证嵌套 createOptionsStore 时 getter 取到正确 pinia;
+- **"用了才建、建一次永复用"**:同一 id 只 `createSetupStore` / `createOptionsStore` 一次,之后 `_s.get(id)` 直达单例——**Pinia 单例语义的实现位置**;
+- **双形态判定在 defineStore 就定**:传函数 = **setup store**(更底层),传 options 对象 = **options store**(语法糖,见下节);
+- 报错直白提示:组件外用 store 前要保证有激活的 pinia(测试里 `setActivePinia(createPinia())`,或先 `app.use(pinia)`)。
 
-## 四、options store:其实是"编译成 setup store"的语法糖
+## 四、options store:其实是被"编译成 setup store"的语法糖
 
-`defineStore('id', { state, getters, actions })` 的 options 形态,在内部被一个 `createOptionsStore` 翻译成 setup:
+`defineStore('id', { state, getters, actions })` 的 options 形态,在内部被 `createOptionsStore` 翻译成 setup:
 
 ```ts
 function createOptionsStore(id, options, pinia, hot) {
@@ -139,15 +137,15 @@ function createOptionsStore(id, options, pinia, hot) {
 }
 ```
 
-三个信息量很大的点:
+三个信息量大的点:
 
-1. **`state()` 只在首次被调**并整体挂进 `pinia.state.value[id]`;因为那个对象是响应式桶里的对象,**它的嵌套天然被 Vue 深度代理**——这就是 Pinia 状态"默认深度响应式"的来源;
-2. **`toRefs`** 把状态对象顶层每个字段变成独立的 ref 引用(解构后仍是响应的),这是 `mapState`、模板里 `...storeToRefs()` 能工作的底层;
-3. **getter 包成 `computed`,`this` 与参数都是 store 本身**:于是 getter 里 `this.doneCount` / 传参 getter `getters.xxx(store)` 都成立;而 `computed` 的"惰性 + 缓存 + 依赖失效"直接**白送** getter 缓存——同一 getter 在多次渲染间不会重复计算,依赖变了才重算。**这是 Pinia getter 与"Zustand selector 每次现算"的根本差异**,也说明 options store 本质上只是把三段声明"编译"成一个 setup 函数交给引擎。
+1. **`state()` 只在首次被调**并整体挂进 `pinia.state.value[id]`;因那是响应式桶里的对象,**嵌套天然被 Vue 深度代理**——Pinia 状态"默认深度响应式"的来源;
+2. **`toRefs`** 把状态对象顶层每字段变成独立 ref(解构后仍响应),这是 `mapState`、模板里 `...storeToRefs()` 能工作的底层;
+3. **getter 包成 `computed`,`this` 与参数都是 store**:getter 里 `this.doneCount` / 传参 getter `getters.xxx(store)` 都成立;`computed` 的"惰性 + 缓存 + 依赖失效"直接**白送** getter 缓存——同一 getter 在多次渲染间不重复计算,依赖变了才重算。**这是 Pinia getter 与 Zustand selector"每次现算"的根本差异**。options store 本质是把三段声明"编译"成一个 setup 函数交给引擎。
 
-## 五、createSetupStore:引擎本体,store 如何被造出来
+## 五、createSetupStore:引擎本体
 
-options store 最后也汇入这里。`createSetupStore`(核心片段)同时接受手写的 setup store 与编译来的 options setup,产出那个最终暴露给用户的 store:
+options store 最后也汇入这里。`createSetupStore`(核心片段)同时接受手写 setup store 与编译来的 options setup:
 
 ```ts
 function createSetupStore($id, setup, options, pinia, hot, isOptionsStore) {
@@ -195,14 +193,14 @@ function createSetupStore($id, setup, options, pinia, hot, isOptionsStore) {
 
 引擎的四条脊柱:
 
-1. **store 是 `reactive(…)` 代理**:`store` 不是普通对象,是 Vue 响应式代理。因此组件里 `store.count`、模板里 `store.user.name` 都是**经过依赖追踪的读**——读它时,当前渲染的 effect 被登记;改它时,Vue 自动只重算真正读了的组件与 getter。**这正是"Pinia 不需要 selector"的总根源**;
-2. **先 `_s.set` 再跑 setup**:注册发生在执行 setup 之前,于是 options store 的 getter 里 `pinia._s.get(id)` 能拿到"正在创建中的自己"(支持 getter 依赖自身状态/其他 getter);
-3. **独立 `effectScope` 包住每个 store**:`scope = effectScope().run(() => setup())`——store 内所有 `computed`/`watch` effect 收进这个作用域,`store.$dispose()` 只需 `scope.stop()` 就能**连同订阅一起整组清理**;
-4. **setup 返回值按类型分流**:ref/响应式对象 → **state**,函数 → **action**(被 `action()` 包装,为 `$onAction` 服务),`computed` → **getter**。分流后 state 被统一收进全局桶、action 被统一包装、getter 被登记——**options 三件套与 setup 形态自此同构**,这也是 Pinia 能同时支持两种写法的原因。
+1. **store 是 `reactive(…)` 代理**:组件里 `store.count`、模板里 `store.user.name` 都是**经过依赖追踪的读**——读时当前渲染 effect 被登记;改时 Vue 只重算真正读了的组件与 getter。**这是"Pinia 不需要 selector"的总根源**;
+2. **先 `_s.set` 再跑 setup**:注册先于 setup 执行,options store 的 getter 里 `pinia._s.get(id)` 能拿到"正在创建中的自己"(getter 可依赖自身状态/其他 getter);
+3. **独立 `effectScope` 包住每个 store**:`scope = effectScope().run(() => setup())`——store 内所有 `computed`/`watch` effect 收进该作用域,`store.$dispose()` 只需 `scope.stop()` 就**连同订阅整组清理**;
+4. **setup 返回值按类型分流**:ref/响应式对象 → **state**,函数 → **action**(被 `action()` 包装,服务 `$onAction`),`computed` → **getter**。state 收进全局桶、action 统一包装、getter 登记——**options 三件套与 setup 形态自此同构**,Pinia 能同时支持两种写法的原因。
 
-再回看 options store 的 setup 返回 `toRefs(...) + actions + getters-computed`:它的 state 字段是 `ref`,`computed` 字段带 effect、函数是 action——正好被上面的分流对号入座。
+再回看 options store 的 setup 返回 `toRefs(...) + actions + getters-computed`:state 字段是 `ref`,`computed` 字段带 effect、函数是 action——正好被上面的分流对号入座。
 
-## 六、一个最小的完整链路
+## 六、一条最小完整链路
 
 ```ts
 import { createApp } from 'vue'
@@ -224,15 +222,15 @@ export const useUser = defineStore('user', {
 ```
 
 - 组件里 `useUser()` → 注入 pinia → 首次建 store(`reactive` 对象 + 状态进桶)→ 返回单例;
-- 模板读 `user.score` → 依赖登记;某处 `user.add()`(`this.score++`,命中 `reactive` 的 set)→ **只有读了 score 的渲染位重算**,别的组件一个不碰——全程没有一行手写订阅。
+- 模板读 `user.score` → 依赖登记;某处 `user.add()`(`this.score++`,命中 `reactive` 的 set)→ **只有读了 score 的渲染位重算**——全程没有一行手写订阅。
 
-## 七、对照问题单
+## 速查
 
-- **问一(存哪)**:store 是 `reactive` 普通对象;state 字段统一收进 `pinia.state.value[id]`(全局响应式桶)。整桶可观测、可 `$state` 替换、可序列化。
-- **问二(怎么变)**:直接赋值/`++`(响应式代理拦截)即可;批量用 `$patch`(进阶篇);没有"reducer"这一步。
-- **问四(如何传导到 UI)**:不写订阅——靠 **Vue 依赖追踪**,读到即登记、改动即通知,**粒度精确到属性**,与 Zustand 的"Set 订阅 + selector 筛选"是两条路线。这也是两库对位时最核心的差异(见[对位篇](./contrast.md))。
-- **问三(派生)**:getter = `computed`,自带缓存与依赖失效(首次读到才算),不必像 selector 那样担心引用稳定。
+| 解剖问题     | Pinia 内核答案                                                                                                                                     |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 问一·存哪    | store 是 `reactive` 普通对象;state 字段统一收进 `pinia.state.value[id]`(全局响应式桶);整桶可观测、可 `$state` 替换、可序列化                       |
+| 问二·怎么变  | 直接赋值/`++`(响应式代理拦截)即可;批量用 `$patch`;没有"reducer"这一步                                                                              |
+| 问四·传导 UI | 不写订阅——靠 **Vue 依赖追踪**,读到即登记、改动即通知,**粒度精确到属性**(与 Zustand 的"Set 订阅 + selector 筛选"两条路线,见[对位篇](./contrast.md)) |
+| 问三·派生    | getter = `computed`,自带缓存与依赖失效(首次读到才算),不必像 selector 担心引用稳定                                                                  |
 
-引擎造出了 store,但"订阅/插件/`$patch`/`$onAction`/双形态取舍"这些能力还没拆完——**进阶篇**把它们逐个剖开:订阅底层的 `watch`、action 包装器、以及为什么 Pinia 的扩展叫"插件"而不是"中间件"。
-
-> 源码参考:`pinia@^4.0` 的 `packages/pinia/src/{rootStore.ts, createPinia.ts, store.ts, defineStore.ts}`(发行版 `dist/pinia.esm-browser.js` 与其一致);Vue 响应式见 vuejs.org。
+> 源码参考:`pinia@^4.0` 的 `packages/pinia/src/{rootStore.ts, createPinia.ts, store.ts, defineStore.ts}`(发行版 `dist/pinia.esm-browser.js` 一致);Vue 响应式见 vuejs.org。下一篇:[Pinia 进阶:$patch / $subscribe / 插件](./pinia-advanced.md)。

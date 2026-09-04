@@ -1,10 +1,10 @@
-# qiankun 接入与工程实战(第 6 篇)
+# qiankun 接入与工程实战
 
-> [← 返回总纲](./README.md) · 本系列第 6 篇:主应用侧改造 / 子应用侧(webpack 双模式)/ Vite 子应用特例 / 公共依赖 / 部署 / 高频踩坑清单
+> 本系列第 6 篇:主应用侧改造 / 子应用侧(webpack 双模式)/ Vite 子应用特例 / 公共依赖 / 部署 / 高频踩坑清单。· [← 返回总纲](./README.md)
 
-前五篇把"为什么"讲透了,这一篇回答"怎么落地":把一个真实工程(或一个全新的 1 主 + 2 子项目)改造成 qiankun 微前端,逐块给出配置与代码。核心心法只有一句——**让每个应用"单独能跑、合体能挂"**,一切改造都围绕这个双模式展开。
+把一个真实工程改造成 qiankun 微前端。核心心法:**让每个应用"单独能跑、合体能挂"**,一切改造围绕这个双模式展开。
 
-## 一、整体改造清单:三块工作
+## 一、整体改造清单
 
 ```
 ① 主应用当"壳":注册 + 路由驱动 + 布局容器 + 全局状态 + 错误兜底
@@ -45,7 +45,7 @@ start({ prefetch: true })
 要点:
 
 - **activeRule 前缀要"整段让渡"给子应用**:主应用别再注册 `/react/*` 自己的页面,那段 URL 属于子应用内部路由(子应用再设 `basename: '/react'`);
-- **子应用之间跳转** = 普通路由跳转(`router.push('/vue/...')`),由主应用的路由系统统一驱动;
+- **子应用之间跳转** = 普通路由跳转(`router.push('/vue/...')`),由主应用路由系统统一驱动;
 - **错误兜底**:`addErrorHandler` 捕获加载失败/生命周期抛错,统一提示与上报。
 
 ## 三、子应用侧(webpack 典型工程):同一份代码,两种活法
@@ -111,11 +111,11 @@ devServer: {
 },
 ```
 
-> 三个必查项:**umd library**(否则"找不到生命周期")、**chunkLoadingGlobal 唯一**(多个 webpack 应用共存,重名会互相覆盖导致 chunk 加载错乱)、**devServer 开 CORS**(否则主应用 fetch 子应用 HTML/JS 被浏览器拦)。
+> 三个必查项:**umd library**(否则"找不到生命周期")、**chunkLoadingGlobal 唯一**(多个 webpack 应用共存,重名互相覆盖导致 chunk 加载错乱)、**devServer 开 CORS**(否则主应用 fetch 子应用 HTML/JS 被浏览器拦)。
 
 ## 四、Vite 子应用:为什么适配难、怎么办
 
-这是 qiankun 落地中最高频的"劝退点",根因都在[第 2 篇](./html-entry.md)的产物要求上:
+根因都在[第 2 篇](./html-entry.md)的产物要求上:
 
 | Vite 的"天然设定"                        | 与 qiankun 的冲突                                                          |
 | ---------------------------------------- | -------------------------------------------------------------------------- |
@@ -128,10 +128,10 @@ devServer: {
 可行的三条路(按推荐度):
 
 1. **换"兼容 Vite 的方案"最省心**:若子应用 / 新项目是 Vite,优先考虑 micro-app / 无界等对 ESM 更友好的方案(对比见[生态篇](./ecosystem.md))或 Webpack 生态的 Module Federation——**qiankun 的 HTML-Entry 模型与 Vite 的 ESM 模型天生拧着**;
-2. **坚持 qiankun + Vite 时**:引入社区插件(`vite-plugin-qiankun-lite` / `vite-plugin-qiankun-x` 等),它们帮你在 dev 下桥接 qiankun 的 `window` 代理(暴露 `qiankunWindow`/自动替换)、修 `index.html` 入口与 `preserveEntrySignatures` 摇树、运行时 publicPath(`fixCssLink` / `vite-plugin-dynamic-base`)——但**要接受降级**:JS 沙箱在 dev/动态 import 下不完整、样式隔离在严格沙箱下可能失效,需子应用自己 CSS Modules / 前缀约束样式;
+2. **坚持 qiankun + Vite 时**:引入社区插件(`vite-plugin-qiankun-lite` / `vite-plugin-qiankun-x` 等),它们在 dev 下桥接 qiankun 的 `window` 代理(暴露 `qiankunWindow`/自动替换)、修 `index.html` 入口与 `preserveEntrySignatures` 摇树、运行时 publicPath(`fixCssLink` / `vite-plugin-dynamic-base`)——但**要接受降级**:JS 沙箱在 dev/动态 import 下不完整、样式隔离在严格沙箱下可能失效,需子应用用 CSS Modules / 前缀约束样式;
 3. **降级沙箱配置**:`start({ sandbox: { loose: true } })` 可避开部分"严格沙箱 + Vite 动态样式"的 bug,代价是隔离更弱——**慎用**,尤其子应用来源不可全信时。
 
-> 一句话结论:**存量 webpack 中后台接入 qiankun 很顺;全新项目若主打 Vite,把"是否兼容 qiankun"写进选型表**(详见[生态篇](./ecosystem.md))。
+> 结论:**存量 webpack 中后台接入 qiankun 很顺;全新项目若主打 Vite,把"是否兼容 qiankun"写进选型表**(详见[生态篇](./ecosystem.md))。
 
 ## 五、公共依赖、首屏性能与部署
 
@@ -159,7 +159,7 @@ devServer: {
 - **history 路由刷新 404**:`/react/foo` 直刷时,服务器要把该子应用的路径回退到**它自己的 index.html**——Nginx 按子应用前缀分别 `try_files ... /index.html`(主应用同样配主前缀回退);
 - **发版联动**:子应用独立发版后,主应用下一次进入才拉到新版本(HTML 不缓存);要"灰度某子应用"可让主应用按用户/开关决定 `entry` 指向哪个版本。
 
-## 六、高频踩坑清单(把前面的边界串起来)
+## 六、高频踩坑清单
 
 | 症状                                     | 根因与对策                                                                                          |
 | ---------------------------------------- | --------------------------------------------------------------------------------------------------- |
@@ -172,7 +172,7 @@ devServer: {
 | antd Modal / Dropdown 样式丢失或错位     | 弹层挂到 body 脱离了子应用容器 → `getPopupContainer` 指回容器,或改为不依赖 body 的渲染方式          |
 | Vite 子应用白屏 / dev 沙箱失效           | 见第四节:产物 ESM 与 qiankun 模型冲突 → 走兼容方案或接受降级                                        |
 | 子应用间全局变量串(关了沙箱才出现)       | 别关 `sandbox`;需要共享走 props / 真 window 命名空间(见[通信篇](./communication.md))                |
-| `window.__POWERED_BY_QIANKUN__` 时好时坏 | 该标志是"被加载"信号,独立运行判断用它没错;若你同时手动 new 了 qiankun 容器要注意执行顺序            |
+| `window.__POWERED_BY_QIANKUN__` 时好时坏 | 该标志是"被加载"信号,独立运行判断用它没错;若同时手动 new 了 qiankun 容器要注意执行顺序              |
 
 ## 速查
 

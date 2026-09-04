@@ -1,14 +1,14 @@
-# qiankun HTML Entry:子应用资源如何被加载执行(第 2 篇)
+# qiankun HTML Entry:子应用资源如何被加载执行
 
-> [← 返回总纲](./README.md) · 本系列第 2 篇:为什么要 HTML Entry / import-html-entry 加载流水线 / 脚本与样式 / publicPath / UMD 产物要求
+> 本系列第 2 篇:为什么要 HTML Entry / import-html-entry 加载流水线 / 脚本与样式 / publicPath / UMD 产物要求。· [← 返回总纲](./README.md)
 
-上一篇说了子应用"交出生命周期",这一篇回答:**主应用拿到一个网址(`entry: '//localhost:7101'`)之后,内部到底做了什么,才能让一个普通网页变成"可被沙箱托管、可交出生命周期"的模块?** 这一机制(qiankun 用底层库 import-html-entry 实现)是它区别于"必须把子应用打成单一 JS 包"的 single-spa 的核心贡献。
+主应用拿到一个网址(`entry: '//localhost:7101'`)后,内部靠底层库 import-html-entry,把一个普通网页变成"可被沙箱托管、可交出生命周期"的模块。
 
 ## 一、为什么是 HTML Entry 而不是 JS Entry
 
-single-spa 传统接入要求子应用打成**一个单一 JS 包(JS Entry)**,CSS、异步 chunk、publicPath 全要自己处理,qiankun 要一并兼容存量工程,于是换了个思路:
+single-spa 传统接入要求子应用打成**一个单一 JS 包(JS Entry)**,CSS、异步 chunk、publicPath 全要自己处理。qiankun 换了个思路以兼容存量工程:
 
-> **子应用入口就是一个普通网页地址。** 主应用去 `fetch` 那个 HTML,把它拆成"可执行的脚本 + 可注入的样式 + 骨架模板",在沙箱环境里执行,再把子应用渲染进容器。
+> **子应用入口就是一个普通网页地址。** 主应用去 `fetch` 那个 HTML,拆成"可执行的脚本 + 可注入的样式 + 骨架模板",在沙箱环境里执行,再把子应用渲染进容器。
 
 | 对比         | JS Entry(single-spa 原始)                  | HTML Entry(qiankun)                                         |
 | ------------ | ------------------------------------------ | ----------------------------------------------------------- |
@@ -18,11 +18,9 @@ single-spa 传统接入要求子应用打成**一个单一 JS 包(JS Entry)**,CS
 | 样式 / 资源  | 子应用自己处理                             | 框架统一抽取注入,再做隔离(见[样式篇](./style-isolation.md)) |
 | 代价         | 简单直接                                   | 需要解析 HTML、保序执行、处理 publicPath,复杂度在框架侧     |
 
-一句话:**JS Entry 把复杂度压给子应用,HTML Entry 把复杂度收进框架**——这是 qiankun 对存量项目友好、接入成本低的根源。
+**JS Entry 把复杂度压给子应用,HTML Entry 把复杂度收进框架**——qiankun 对存量项目友好、接入成本低的根源。
 
 ## 二、加载流水线:一个网址如何变成"活的应用"
-
-qiankun 拉取并执行一个子应用的完整链路(伪代码 + 流程):
 
 ```js
 const { template, execScripts, assetPublicPath } = await importEntry(entry)
@@ -48,23 +46,24 @@ fetch(entry html)
                  │
                  ▼
       捕获入口 UMD 脚本的模块导出(或 window[应用名])
+                 │
                  ▼
       validateLifecycles(找到 bootstrap/mount/unmount)→ 注册成功
 ```
 
 几个"读源码时容易懵"的细节:
 
-- **脚本分两类**:HTML 里可能有 jQuery 这类"只求执行、不求导出"的库脚本,也有你打包出来的**入口脚本**。普通脚本照常执行以建立全局;qiankun 只从**入口脚本的执行结果**里找生命周期。
-- **执行必须保序**:脚本之间可能互相依赖,不能并行乱序执行;资源本身可以并行预取,执行串行。
+- **脚本分两类**:jQuery 这类"只求执行、不求导出"的库脚本,以及打包出来的**入口脚本**。普通脚本照常执行以建立全局;qiankun 只从**入口脚本的执行结果**里找生命周期。
+- **执行必须保序**:脚本之间可能互相依赖,不能并行乱序执行;资源本身可并行预取,执行串行。
 - **style 先行、script 后行**:先注入样式避免首屏裸奔,再跑脚本,与浏览器解析行为一致。
 
 ## 三、为什么子应用必须打成 UMD + 生命周期从入口导出
 
-第 1 篇的"交出生命周期"落到构建层,就是一句硬要求:
+落到构建层的硬要求:
 
 > **子应用的入口 JS 必须能以 `libraryTarget: 'umd'` 打包,并把 `bootstrap/mount/unmount` 从入口文件导出。**
 
-原因在加载机制里:qiankun 用 `fetch + eval/new Function` 在沙箱里跑脚本(**不能直接跑 `<script type="module">`**),而 UMD 是"既能被模块系统识别、又能挂到 `window` 上"的格式——入口脚本执行完,它的导出(即生命周期)要么被直接捕获,要么落在 `window[library 名]` 上,qiankun 由此读到。配套的 webpack 配置长这样(细节见[工程实战篇](./migration.md)):
+原因在加载机制里:qiankun 用 `fetch + eval/new Function` 在沙箱里跑脚本(**不能直接跑 `<script type="module">`**),而 UMD 是"既能被模块系统识别、又能挂到 `window` 上"的格式——入口脚本执行完,导出(即生命周期)要么被直接捕获,要么落在 `window[library 名]` 上。配套 webpack 配置(细节见[工程实战篇](./migration.md)):
 
 ```js
 output: {
@@ -75,13 +74,13 @@ output: {
 }
 ```
 
-> 这条约束也解释了两个常被问的现象:**为什么 Vite 子应用接入 qiankun 这么费劲**(Vite 产物是原生 ESM,入口是 `index.html` 而非可捕获的 UMD 脚本)、**为什么有的应用"白屏但没报错"**(生命周期被 tree-shaking 摇掉了——见[工程实战篇](./migration.md)的 Vite 一节)。
+> 这条约束也解释了两个常被问的现象:**为什么 Vite 子应用接入 qiankun 费劲**(Vite 产物是原生 ESM,入口是 `index.html` 而非可捕获的 UMD 脚本)、**为什么有的应用"白屏但没报错"**(生命周期被 tree-shaking 摇掉了——见[工程实战篇](./migration.md)的 Vite 一节)。
 
 ## 四、publicPath:子应用资源为什么 404
 
-子应用在独立运行时,`index.html` 与它引用的 JS/CSS/图片同源,相对路径没问题。**被 qiankun 加载后,子应用的代码跑在主应用域名下**,于是代码里那些相对路径资源(异步 chunk、图片、字体)会去主应用域名下找 → 404。
+子应用独立运行时,`index.html` 与引用的 JS/CSS/图片同源,相对路径没问题。**被 qiankun 加载后,代码跑在主应用域名下**,相对路径资源(异步 chunk、图片、字体)会去主应用域名下找 → 404。
 
-qiankun 的解法是运行时注入一个"正确的资源基址":`window.__INJECTED_PUBLIC_PATH_BY_QIANKUN__`(值即注册时的 `entry`)。子应用要**在入口第一行**把 webpack 的 publicPath 换成它:
+qiankun 运行时注入"正确的资源基址":`window.__INJECTED_PUBLIC_PATH_BY_QIANKUN__`(值即注册时的 `entry`)。子应用要**在入口第一行**把 webpack 的 publicPath 换成它:
 
 ```js
 // src/public-path.js —— 必须作为入口第一行被引入
@@ -93,13 +92,13 @@ if (window.__POWERED_BY_QIANKUN__) {
 两个高频坑(工程篇还会展开):
 
 - **public-path.js 被 tree-shaking 摇掉**:它"没被引用",webpack5 可能删之 → 在 `package.json` 的 `sideEffects` 里声明 `"./src/public-path.js"` 保它不死;
-- **Vite 没有 `__webpack_public_path__`**:需社区插件或运行时 base 处理,这是 Vite 适配难的又一根源。
+- **Vite 没有 `__webpack_public_path__`**:需社区插件或运行时 base 处理,Vite 适配难的又一根源。
 
 ## 五、预加载、缓存与加载失败
 
 - **`start({ prefetch })`**:默认 `true`,首个子应用挂载完成后,浏览器空闲时预取其余应用的静态资源(HTML/JS/CSS),换来后续进入"秒开";可传 `'all'` / 应用名数组精细控制。
-- **缓存与重复拉取**:qiankun 默认每次激活重新拉取 HTML 与脚本(保证拿最新发布),生产上通常靠子应用静态资源的 HTTP 缓存(CSS/JS 带 hash)兜性能;若需要更强缓存策略,需在框架之上自建。
-- **加载失败兜底**:网络异常 / 生命周期抛错会走到 `addErrorHandler`(见[模型篇](./model.md));常见诱因是 CORS 未开(主应用 fetch 子应用资源是**跨域请求**,子应用 dev server / 静态服务必须返回 `Access-Control-Allow-Origin`)。
+- **缓存与重复拉取**:qiankun 默认每次激活重新拉取 HTML 与脚本(保证拿最新发布),生产通常靠子应用静态资源的 HTTP 缓存(CSS/JS 带 hash)兜性能;需要更强缓存策略要在框架之上自建。
+- **加载失败兜底**:网络异常 / 生命周期抛错走到 `addErrorHandler`(见[模型篇](./model.md));常见诱因是 CORS 未开(主应用 fetch 子应用资源是**跨域请求**,子应用 dev server / 静态服务必须返回 `Access-Control-Allow-Origin`)。
 
 ## 速查
 

@@ -1,8 +1,6 @@
 # Husky + Changesets · 提交质量与版本发布
 
-> [← 返回主 README](../README.md) · changeset 书写与分组规则见 [.changeset/README](../.changeset/README.md)
-
-两个工具**定位不同、互补使用、不做直接集成**:**Husky** 管 Git Hooks(git commit 时自动跑脚本),**Changesets** 管版本与 Changelog(发布前统一升版)。典型节奏是:提交时由 Husky 做质量检查,发版时由 Changesets 管理版本变更。
+> 提交质量与版本发布:两个工具**定位不同、互补使用、不做直接集成**——Husky 管 Git Hooks(commit 时自动检查),Changesets 管版本与 CHANGELOG(发布前统一升版)。changeset 书写与分组规则见 [.changeset/README](../.changeset/README.md)。· [← 返回 docs 索引](./README.md)
 
 ## 一、分工一览
 

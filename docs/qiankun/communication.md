@@ -1,10 +1,10 @@
-# qiankun 应用间通信(第 5 篇)
+# qiankun 应用间通信
 
-> [← 返回总纲](./README.md) · 本系列第 5 篇:谁和谁通信 / props 静态下传 / initGlobalState(Actions)双向广播 / 事件与存储 / 契约设计
+> 本系列第 5 篇:谁和谁通信 / props 静态下传 / initGlobalState(Actions)双向广播 / 事件与存储 / 契约设计。· [← 返回总纲](./README.md)
 
-应用拆开了,数据还得流动。微前端通信的难点不在 API,而在**边界**:**哪些数据该跨应用共享、哪些应该留在自己手里**——设计错了,拆微前端就退化成"分布式传参地狱"。这一篇把 qiankun 的通信手段与契约原则一起讲清。
+应用拆开了,数据还得流动。通信的难点不在 API,而在**边界**:**哪些数据该跨应用共享、哪些留在自己手里**——设计错了,拆微前端就退化成"分布式传参地狱"。
 
-## 一、先想清楚:谁在通信、为什么通信
+## 一、谁在通信、为什么通信
 
 | 通信双方                | 典型内容                                          | 推荐手段                        |
 | ----------------------- | ------------------------------------------------- | ------------------------------- |
@@ -49,7 +49,7 @@ export async function mount(props) {
 
 **注意**:props 是"下发时的快照",不是响应式的。**用户信息变了要主动再通知**(用全局状态),别指望 props 自动更新。
 
-## 三、全局状态 Actions:主 ⇄ 子双向广播(官方主力)
+## 三、全局状态 Actions:主 ⇄ 子双向广播
 
 qiankun 内置一个简单的**发布订阅式全局状态**。主应用创建,子应用通过 props 使用:
 
@@ -67,11 +67,11 @@ actions.onGlobalStateChange((state, prev) => {
 export { actions }
 ```
 
-| actions 方法                                      | 说明                                                                                                  |
-| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `onGlobalStateChange(callback, fireImmediately?)` | 注册监听;回调 `(state, prevState)`;返回后每次 `setGlobalState` 广播时被调用                           |
-| `setGlobalState(partialState)`                    | 更新状态并通知所有监听;参数按**一级属性浅合并**;只能更新**已存在**的一级属性(新增 key 会被忽略并告警) |
-| `offGlobalStateChange()`                          | 注销当前监听(子应用 unmount 时会自动调用,一般不必手动)                                                |
+| actions 方法                                      | 说明                                                                                                |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `onGlobalStateChange(callback, fireImmediately?)` | 注册监听;回调 `(state, prevState)`;每次 `setGlobalState` 广播时被调用                               |
+| `setGlobalState(partialState)`                    | 更新状态并通知所有监听;参数按**一级属性浅合并**;只能更新**已存在**的一级属性(新增 key 被忽略并告警) |
+| `offGlobalStateChange()`                          | 注销当前监听(子应用 unmount 时会自动调用,一般不必手动)                                              |
 
 子应用侧两种拿法,效果等价(同一套发布订阅):
 
@@ -85,7 +85,7 @@ props.setGlobalState({ user: { ... } })
 ```
 
 ```js
-// 子应用独立运行(无 qiankun 环境)时的兜底:给通信方法一个"空实现"占位,
+// 子应用独立运行(无 qiankun 环境)时的兜底:给通信方法"空实现"占位,
 // 等被挂载、真实 props 注入后再替换——保证单独开发时组件不因调空方法而崩
 const empty = (..._args) => {
   /* warn: 当前为独立运行 */
@@ -94,9 +94,9 @@ const empty = (..._args) => {
 
 **四个必踩的坑**:
 
-1. **浅合并不是深合并**:`setGlobalState({ user: { name: 'x' } })` 会拿整对象覆盖 `user`,丢掉里面其它字段 → **嵌套对象要整体替换**(先读旧值再合并);
+1. **浅合并不是深合并**:`setGlobalState({ user: { name: 'x' } })` 会拿整对象覆盖 `user`,丢掉其它字段 → **嵌套对象要整体替换**(先读旧值再合并);
 2. **只能更新已存在的一级 key**:`setGlobalState({ brandNew: 1 })` 无效——初始化时把要用的一级键都先占好位;
-3. **监听别注册在路由组件里**:每次切路由重复注册会触发 "listener already exists" 告警,建议放在应用根部 / 模块级;
+3. **监听别注册在路由组件里**:每次切路由重复注册会触发 "listener already exists" 告警,放在应用根部 / 模块级;
 4. **子应用里别自己再 `initGlobalState`**:全局状态属于主应用,子应用只消费 props 里下发的通信方法。
 
 > qiankun 3 对 Actions 有重构计划,当前(2.x)用法如上;升级前关注其 API 变更说明。
@@ -104,15 +104,15 @@ const empty = (..._args) => {
 ## 四、其他手段:全局事件、存储、共享 store
 
 - **`CustomEvent`(window 事件)**:适合"一次性通知"(如"去订单页")。跨应用、任意一对多都行,但**无类型、难追踪、易泄漏**——必须加命名空间(如 `mfe:order:open`)并在 unmount 时 `removeEventListener`;
-- **localStorage / cookie**:同源域名下天然共享,**适合登录态等必须持久化的状态**(刷新不丢);用 `storage` 事件做跨标签页同步;注意 key 加应用前缀防冲突;
-- **共享 store(模块级)**:若某些应用真的要共享一份 React/Vue store 实例,本质是"把 store 当共享模块",与[Webpack Module Federation](../webpack/module-federation.md) 的 `shared` 同思路——这属于[生态篇](./ecosystem.md)说的"模块级共享",跟 qiankun 的 Actions 是两个层次,可叠加使用。
+- **localStorage / cookie**:同源域名下天然共享,**适合登录态等必须持久化的状态**(刷新不丢);用 `storage` 事件做跨标签页同步;key 加应用前缀防冲突;
+- **共享 store(模块级)**:若某些应用真的要共享一份 React/Vue store 实例,本质是"把 store 当共享模块",与 [Webpack Module Federation](../webpack/module-federation.md) 的 `shared` 同思路——这属于[生态篇](./ecosystem.md)说的"模块级共享",与 qiankun 的 Actions 是两个层次,可叠加使用。
 
 ## 五、把它做成"契约"而非"玄学"
 
-微前端多团队协作时,通信最容易变成"谁都往里塞、没人说得清字段"的全局垃圾桶。建议:
+多团队协作时,通信最容易变成"谁都往里塞、没人说得清字段"的全局垃圾桶:
 
-- **定义一份状态契约**:字段名、类型、谁写谁读、变更事件语义写成文档(跨仓库共享一份 `.d.ts` 或用 TypeScript 类型导入,见本仓库 [Monorepo 思路](../monorepo.md));
-- **收口入口**:子应用不直接 `window.dispatchEvent` 满天飞,而是在自己内部封装一层 `mfeBus`(内部转调 Actions/事件),业务组件不感知底层;
+- **定义一份状态契约**:字段名、类型、谁写谁读、变更事件语义写成文档(跨仓库共享一份 `.d.ts` 或用 TS 类型导入,见本仓库 [Monorepo 思路](../monorepo.md));
+- **收口入口**:子应用不直接 `window.dispatchEvent` 满天飞,在自己内部封装一层 `mfeBus`(内部转调 Actions/事件),业务组件不感知底层;
 - **只广播"事件与轻量状态"**:比如广播"登录态变更"这一事件,而不是把整个用户详情对象反复全量下发;
 - **API base / 环境配置走 props 注入**:子应用不写死后端地址,由主应用统一注入(便于多环境与灰度)。
 
