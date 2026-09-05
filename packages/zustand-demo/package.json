@@ -1,0 +1,26 @@
+{
+  "name": "@mzy1120/zustand-demo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "@mzy1120 zustand 大型项目用法可运行骨架:内置 createStore 工厂(devtools/persist/immer 可插拔)+ Feature 边界 + Server/Client State 分离 + Selector + Slice 模式,登录→项目→编辑器全链路演示",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.102.8",
+    "immer": "^11.1.18",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "vite": "^8.2.2"
+  }
+}

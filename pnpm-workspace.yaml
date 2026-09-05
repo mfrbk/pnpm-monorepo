@@ -6,3 +6,6 @@ packages:
 # esbuild(tsup 依赖)需要运行 postinstall 以完成平台二进制就绪。
 allowBuilds:
   esbuild: true
+
+minimumReleaseAgeExclude:
+  - '@types/react-dom@19.2.7'
